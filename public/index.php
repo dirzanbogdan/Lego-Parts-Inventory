@@ -10,6 +10,7 @@ use App\Controllers\ApiController;
 use App\Controllers\SyncController;
 $router = new Router();
 $router->add('GET', '/', [PartsController::class, 'home']);
+$router->add('GET', '/index.php', [PartsController::class, 'home']);
 $router->add('GET', '/login', [AuthController::class, 'loginForm']);
 $router->add('POST', '/login', [AuthController::class, 'login']);
 $router->add('GET', '/logout', [AuthController::class, 'logout']);

@@ -8,6 +8,9 @@ class Router {
     }
     public function dispatch(): void {
         $uri = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
+        if (preg_match('/index\.php$/', $uri)) {
+            $uri = '/';
+        }
         $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
         foreach ($this->routes as $route) {
             $m = $route[0];
