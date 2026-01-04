@@ -9,6 +9,147 @@ class ConfigController extends Controller {
         Security::requireRole('admin');
         $this->render('admin/config', []);
     }
+    public function scrapePartsOne(): void {
+        $this->requirePost();
+        Security::requireRole('admin');
+        if (!\App\Core\Security::verifyCsrf($_POST['csrf'] ?? null)) {
+            http_response_code(400);
+            echo 'bad request';
+            return;
+        }
+        $code = trim($_POST['code'] ?? '');
+        if ($code === '') {http_response_code(422);echo 'invalid';return;}
+        $url = 'https://www.bricklink.com/v2/catalog/catalogitem.page?P=' . urlencode($code);
+        $html = $this->fetch($url);
+        $name = $this->extract($html, '/<title>(.*?)<\/title>/i') ?: $code;
+        $img = $this->extract($html, '/<img[^>]+src="([^"]+)"[^>]*class="img-item"/i');
+        $localImg = $this->saveImage($img, 'parts', $code);
+        $data = [
+            'name' => $name,
+            'part_code' => $code,
+            'image_url' => $localImg ?: $img,
+            'bricklink_url' => $url,
+        ];
+        $pdo = Config::db();
+        $st = $pdo->prepare('SELECT id FROM parts WHERE part_code=?');
+        $st->execute([$code]);
+        $id = (int)($st->fetchColumn() ?: 0);
+        if ($id) {
+            $s2 = $pdo->prepare('UPDATE parts SET name=?, image_url=?, bricklink_url=? WHERE id=?');
+            $s2->execute([$name, $data['image_url'], $url, $id]);
+        } else {
+            $s3 = $pdo->prepare('INSERT INTO parts (name, part_code, image_url, bricklink_url) VALUES (?,?,?,?)');
+            $s3->execute([$name, $code, $data['image_url'], $url]);
+        }
+        echo 'ok';
+    }
+    public function scrapeSetsOne(): void {
+        $this->requirePost();
+        Security::requireRole('admin');
+        if (!\App\Core\Security::verifyCsrf($_POST['csrf'] ?? null)) {
+            http_response_code(400);
+            echo 'bad request';
+            return;
+        }
+        $code = trim($_POST['code'] ?? '');
+        if ($code === '') {http_response_code(422);echo 'invalid';return;}
+        $url = 'https://www.bricklink.com/v2/catalog/catalogitem.page?S=' . urlencode($code);
+        $html = $this->fetch($url);
+        $name = $this->extract($html, '/<title>(.*?)<\/title>/i') ?: $code;
+        $img = $this->extract($html, '/<img[^>]+src="([^"]+)"[^>]*class="img-item"/i');
+        $localImg = $this->saveImage($img, 'sets', $code);
+        $pdo = Config::db();
+        $st = $pdo->prepare('SELECT id FROM sets WHERE set_code=?');
+        $st->execute([$code]);
+        $sid = (int)($st->fetchColumn() ?: 0);
+        if ($sid) {
+            $s2 = $pdo->prepare('UPDATE sets SET set_name=?, image=? WHERE id=?');
+            $s2->execute([$name, $localImg ?: $img, $sid]);
+        } else {
+            $s3 = $pdo->prepare('INSERT INTO sets (set_name, set_code, type, year, image) VALUES (?,?,?,?,?)');
+            $s3->execute([$name, $code, 'official', null, $localImg ?: $img]);
+            $sid = (int)$pdo->lastInsertId();
+        }
+        $invUrl = 'https://www.bricklink.com/catalogItemInv.asp?S=' . urlencode($code);
+        $invHtml = $this->fetch($invUrl);
+        preg_match_all('/catalogitem.page\\?P=([^"&]+).*?color=([^"&]+).*?Qty:\\s*(\\d+)/is', $invHtml, $matches, PREG_SET_ORDER);
+        foreach ($matches as $m) {
+            $pcode = trim($m[1]);
+            $colorCode = trim($m[2]);
+            $qty = (int)trim($m[3]);
+            if ($pcode === '' || $qty<=0) continue;
+            $pId = $this->ensurePart($pcode);
+            $cId = $this->ensureColorByCode($colorCode);
+            if ($pId) {
+                $stp = $pdo->prepare('INSERT INTO set_parts (set_id, part_id, color_id, quantity) VALUES (?,?,?,?) ON DUPLICATE KEY UPDATE quantity=VALUES(quantity)');
+                $stp->execute([$sid, $pId, $cId ?: null, $qty]);
+            }
+        }
+        echo 'ok';
+    }
+    public function scrapeColors(): void {
+        $this->requirePost();
+        Security::requireRole('admin');
+        if (!\App\Core\Security::verifyCsrf($_POST['csrf'] ?? null)) {
+            http_response_code(400);
+            echo 'bad request';
+            return;
+        }
+        $html = $this->fetch('https://www.bricklink.com/catalogColors.asp?itemType=P');
+        preg_match_all('/color=(\\d+)[^>]*>\\s*([^<]+)/i', $html, $ms, PREG_SET_ORDER);
+        $pdo = Config::db();
+        foreach ($ms as $m) {
+            $code = trim($m[1]);
+            $name = trim($m[2]);
+            $st = $pdo->prepare('INSERT INTO colors (color_name, color_code) VALUES (?,?) ON DUPLICATE KEY UPDATE color_code=?');
+            $st->execute([$name, $code, $code]);
+        }
+        header('Location: /admin/config?ok=colors');
+    }
+    private function fetch(string $url): string {
+        $opts = ['http' => ['method' => 'GET', 'header' => "User-Agent: LegoInventory\r\n"]];
+        return @file_get_contents($url, false, stream_context_create($opts)) ?: '';
+    }
+    private function extract(string $html, string $pattern): ?string {
+        if (!$html) return null;
+        if (preg_match($pattern, $html, $m)) return trim(html_entity_decode($m[1]));
+        return null;
+    }
+    private function saveImage(?string $url, string $type, string $code): ?string {
+        if (!$url) return null;
+        $data = @file_get_contents($url);
+        if (!$data) return null;
+        $dir = __DIR__ . '/../../public/uploads/' . $type;
+        if (!is_dir($dir)) @mkdir($dir, 0775, true);
+        $ext = 'jpg';
+        $path = $dir . '/' . preg_replace('/[^a-zA-Z0-9_\\-]/','_', $code) . '.' . $ext;
+        @file_put_contents($path, $data);
+        if (file_exists($path)) return '/uploads/' . $type . '/' . basename($path);
+        return null;
+    }
+    private function ensurePart(string $code): ?int {
+        $pdo = Config::db();
+        $st = $pdo->prepare('SELECT id FROM parts WHERE part_code=?');
+        $st->execute([$code]);
+        $id = (int)($st->fetchColumn() ?: 0);
+        if ($id) return $id;
+        $url = 'https://www.bricklink.com/v2/catalog/catalogitem.page?P=' . urlencode($code);
+        $html = $this->fetch($url);
+        $name = $this->extract($html, '/<title>(.*?)<\/title>/i') ?: $code;
+        $img = $this->extract($html, '/<img[^>]+src="([^"]+)"[^>]*class="img-item"/i');
+        $localImg = $this->saveImage($img, 'parts', $code);
+        $s = $pdo->prepare('INSERT INTO parts (name, part_code, image_url, bricklink_url) VALUES (?,?,?,?)');
+        $s->execute([$name, $code, $localImg ?: $img, $url]);
+        return (int)$pdo->lastInsertId();
+    }
+    private function ensureColorByCode(string $code): ?int {
+        $pdo = Config::db();
+        $st = $pdo->prepare('SELECT id FROM colors WHERE color_code=?');
+        $st->execute([$code]);
+        $id = (int)($st->fetchColumn() ?: 0);
+        if ($id) return $id;
+        return null;
+    }
     public function seedColors(): void {
         $this->requirePost();
         Security::requireRole('admin');
@@ -17,16 +158,7 @@ class ConfigController extends Controller {
             echo 'bad request';
             return;
         }
-        $pdo = Config::db();
-        $colors = [
-            ['Black','0'],['White','15'],['Red','5'],['Blue','7'],['Yellow','3'],
-            ['Light Bluish Gray','86'],['Dark Bluish Gray','85'],['Green','2'],
-        ];
-        foreach ($colors as [$n,$c]) {
-            $st = $pdo->prepare('INSERT INTO colors (color_name, color_code) VALUES (?,?) ON DUPLICATE KEY UPDATE color_code=?');
-            $st->execute([$n,$c,$c]);
-        }
-        header('Location: /admin/config?ok=colors');
+        $this->scrapeColors();
     }
     public function seedParts(): void {
         $this->requirePost();
@@ -36,21 +168,7 @@ class ConfigController extends Controller {
             echo 'bad request';
             return;
         }
-        $pdo = Config::db();
-        $cats = ['Basic','Technic'];
-        foreach ($cats as $cat) {
-            $pdo->prepare('INSERT INTO categories (name) VALUES (?) ON DUPLICATE KEY UPDATE name=name')->execute([$cat]);
-        }
-        $catId = (int)$pdo->query("SELECT id FROM categories WHERE name='Basic'")->fetchColumn();
-        $parts = [
-            ['Brick 2x4','3001',null,$catId,'','https://www.bricklink.com/v2/catalog/catalogitem.page?P=3001','',null,'2x4','',null],
-            ['Plate 2x4','3020',null,$catId,'','https://www.bricklink.com/v2/catalog/catalogitem.page?P=3020','',null,'2x4','',null],
-            ['Tile 2x2','3068b',null,$catId,'','https://www.bricklink.com/v2/catalog/catalogitem.page?P=3068b','',null,'2x2','',null],
-        ];
-        foreach ($parts as $p) {
-            $pdo->prepare('INSERT INTO parts (name, part_code, version, category_id, image_url, bricklink_url, years_released, weight, stud_dimensions, package_dimensions, no_of_parts) VALUES (?,?,?,?,?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE name=VALUES(name), category_id=VALUES(category_id), image_url=VALUES(image_url), bricklink_url=VALUES(bricklink_url)')->execute($p);
-        }
-        header('Location: /admin/config?ok=parts');
+        header('Location: /admin/config');
     }
     public function seedSets(): void {
         $this->requirePost();
@@ -60,18 +178,6 @@ class ConfigController extends Controller {
             echo 'bad request';
             return;
         }
-        $pdo = Config::db();
-        $pdo->prepare('INSERT INTO sets (set_name, set_code, type, year, image) VALUES (?,?,?,?,?) ON DUPLICATE KEY UPDATE set_name=VALUES(set_name), type=VALUES(type), year=VALUES(year), image=VALUES(image)')
-            ->execute(['Starter Pack','SP-001','custom',2025,'']);
-        $setId = (int)$pdo->query("SELECT id FROM sets WHERE set_code='SP-001'")->fetchColumn();
-        $p1 = $pdo->query("SELECT id FROM parts WHERE part_code='3001'")->fetchColumn();
-        $p2 = $pdo->query("SELECT id FROM parts WHERE part_code='3020'")->fetchColumn();
-        $p3 = $pdo->query("SELECT id FROM parts WHERE part_code='3068b'")->fetchColumn();
-        $black = $pdo->query("SELECT id FROM colors WHERE color_name='Black'")->fetchColumn();
-        $white = $pdo->query("SELECT id FROM colors WHERE color_name='White'")->fetchColumn();
-        if ($setId && $p1) $pdo->prepare('INSERT INTO set_parts (set_id, part_id, color_id, quantity) VALUES (?,?,?,?) ON DUPLICATE KEY UPDATE quantity=VALUES(quantity)')->execute([$setId,(int)$p1,(int)$black,10]);
-        if ($setId && $p2) $pdo->prepare('INSERT INTO set_parts (set_id, part_id, color_id, quantity) VALUES (?,?,?,?) ON DUPLICATE KEY UPDATE quantity=VALUES(quantity)')->execute([$setId,(int)$p2,(int)$white,8]);
-        if ($setId && $p3) $pdo->prepare('INSERT INTO set_parts (set_id, part_id, color_id, quantity) VALUES (?,?,?,?) ON DUPLICATE KEY UPDATE quantity=VALUES(quantity)')->execute([$setId,(int)$p3,null,6]);
-        header('Location: /admin/config?ok=sets');
+        header('Location: /admin/config');
     }
 }

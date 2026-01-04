@@ -21,15 +21,34 @@
   </tbody>
 </table>
 <h3>Editeaza</h3>
-<form method="post" action="/parts/update">
+<form method="post" action="/parts/update" enctype="multipart/form-data">
   <input type="hidden" name="csrf" value="<?php echo htmlspecialchars($csrf); ?>">
   <input type="hidden" name="id" value="<?php echo (int)$part['id']; ?>">
-  <input type="text" name="name" value="<?php echo htmlspecialchars($part['name']); ?>">
-  <input type="text" name="part_code" value="<?php echo htmlspecialchars($part['part_code']); ?>">
+  <label>Nume</label>
+  <input type="text" name="name" value="<?php echo htmlspecialchars($part['name']); ?>" required>
+  <label>Cod BrickLink</label>
+  <input type="text" name="part_code" value="<?php echo htmlspecialchars($part['part_code']); ?>" required>
+  <label>Versiune</label>
   <input type="text" name="version" value="<?php echo htmlspecialchars($part['version']); ?>">
-  <input type="text" name="image_url" value="<?php echo htmlspecialchars($part['image_url']); ?>">
+  <label>Poza (upload)</label>
+  <input type="file" name="image_file" accept="image/*">
+  <label>URL BrickLink</label>
   <input type="text" name="bricklink_url" value="<?php echo htmlspecialchars($part['bricklink_url']); ?>">
-  <button type="submit">Actualizeaza</button>
+  <button type="submit">Salveaza</button>
+</form>
+<h3>Adauga culoare pentru piesa</h3>
+<form method="post" action="/inventory/update" class="inline">
+  <input type="hidden" name="csrf" value="<?php echo htmlspecialchars($csrf); ?>">
+  <input type="hidden" name="part_id" value="<?php echo (int)$part['id']; ?>">
+  <label>Culoare</label>
+  <select name="color_id">
+    <?php foreach (\App\Models\Color::all() as $c): ?>
+      <option value="<?php echo (int)$c['id']; ?>"><?php echo htmlspecialchars($c['color_name']); ?></option>
+    <?php endforeach; ?>
+  </select>
+  <input type="hidden" name="delta" value="0">
+  <input type="text" name="reason" placeholder="Motiv (optional)">
+  <button type="submit">Adauga</button>
 </form>
 <form method="post" action="/parts/delete" onsubmit="return confirm('Stergi piesa?')">
   <input type="hidden" name="csrf" value="<?php echo htmlspecialchars($csrf); ?>">

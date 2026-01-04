@@ -70,7 +70,6 @@ class PartsController extends Controller {
             'part_code' => trim($_POST['part_code'] ?? ''),
             'version' => $_POST['version'] ?? null,
             'category_id' => $_POST['category_id'] ?? null,
-            'image_url' => $_POST['image_url'] ?? null,
             'bricklink_url' => $_POST['bricklink_url'] ?? null,
             'years_released' => $_POST['years_released'] ?? null,
             'weight' => $_POST['weight'] ?? null,
@@ -78,6 +77,18 @@ class PartsController extends Controller {
             'package_dimensions' => $_POST['package_dimensions'] ?? null,
             'no_of_parts' => $_POST['no_of_parts'] ?? null,
         ];
+        $imageLocal = null;
+        if (!empty($_FILES['image_file']['tmp_name'])) {
+            $dir = __DIR__ . '/../../public/uploads/parts';
+            if (!is_dir($dir)) @mkdir($dir, 0775, true);
+            $ext = pathinfo($_FILES['image_file']['name'], PATHINFO_EXTENSION) ?: 'jpg';
+            $code = $data['part_code'] ?: ('part-' . $id);
+            $fname = $code . '.' . strtolower($ext);
+            $dest = $dir . '/' . $fname;
+            @move_uploaded_file($_FILES['image_file']['tmp_name'], $dest);
+            if (file_exists($dest)) $imageLocal = '/uploads/parts/' . $fname;
+        }
+        if ($imageLocal) $data['image_url'] = $imageLocal;
         Part::update($id, $data);
         header('Location: /parts/view?id=' . $id);
     }
@@ -132,4 +143,3 @@ class PartsController extends Controller {
         $this->render('search/index', ['parts' => $parts, 'query' => $q]);
     }
 }
-

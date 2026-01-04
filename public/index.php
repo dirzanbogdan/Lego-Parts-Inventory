@@ -46,5 +46,7 @@ $router->add('GET', '/admin/config', [ConfigController::class, 'page']);
 $router->add('POST', '/admin/config/seed_colors', [ConfigController::class, 'seedColors']);
 $router->add('POST', '/admin/config/seed_parts', [ConfigController::class, 'seedParts']);
 $router->add('POST', '/admin/config/seed_sets', [ConfigController::class, 'seedSets']);
+$router->add('POST', '/admin/config/scrape_parts_one', [ConfigController::class, 'scrapePartsOne']);
+$router->add('POST', '/admin/config/scrape_sets_one', [ConfigController::class, 'scrapeSetsOne']);
 $router->add('POST', '/sync/bricklink', [SyncController::class, 'syncBrickLink']);
 $router->dispatch();
