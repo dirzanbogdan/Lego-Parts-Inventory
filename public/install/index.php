@@ -39,7 +39,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
     $blToken = trim($_POST['bl_token'] ?? '');
     $blTokenSecret = trim($_POST['bl_token_secret'] ?? '');
     $seedColors = isset($_POST['seed_colors']);
-    $envFile = __DIR__ . '/../../app/config/local_env.php';
+    $envFile = __DIR__ . '/../../app/Config/local_env.php';
     $env = [];
     if ($baseUrl) $env[] = "putenv('BASE_URL=$baseUrl');";
     if ($dbHost) $env[] = "putenv('DB_HOST=$dbHost');";

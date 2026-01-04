@@ -11,7 +11,7 @@ spl_autoload_register(function ($class) {
     $file = $base_dir . str_replace('\\', '/', $relative_class) . '.php';
     if (file_exists($file)) require $file;
 });
-$localEnv = __DIR__ . '/config/local_env.php';
+$localEnv = __DIR__ . '/Config/local_env.php';
 if (file_exists($localEnv)) require $localEnv;
-require __DIR__ . '/config/config.php';
+require __DIR__ . '/Config/config.php';
 Security::initSession();
