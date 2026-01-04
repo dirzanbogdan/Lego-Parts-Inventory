@@ -4,11 +4,11 @@ CREATE TABLE IF NOT EXISTS users (
   password_hash VARCHAR(255) NOT NULL,
   role ENUM('admin','user') NOT NULL DEFAULT 'user',
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+ ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 CREATE TABLE IF NOT EXISTS categories (
   id INT AUTO_INCREMENT PRIMARY KEY,
   name VARCHAR(100) UNIQUE NOT NULL
-);
+ ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 CREATE TABLE IF NOT EXISTS parts (
   id INT AUTO_INCREMENT PRIMARY KEY,
   name VARCHAR(255) NOT NULL,
@@ -26,12 +26,12 @@ CREATE TABLE IF NOT EXISTS parts (
   INDEX idx_code (part_code),
   INDEX idx_category (category_id),
   FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE SET NULL
-);
+ ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 CREATE TABLE IF NOT EXISTS colors (
   id INT AUTO_INCREMENT PRIMARY KEY,
   color_name VARCHAR(100) UNIQUE NOT NULL,
   color_code VARCHAR(50)
-);
+ ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 CREATE TABLE IF NOT EXISTS part_colors (
   part_id INT NOT NULL,
   color_id INT NOT NULL,
@@ -39,7 +39,7 @@ CREATE TABLE IF NOT EXISTS part_colors (
   PRIMARY KEY (part_id, color_id),
   FOREIGN KEY (part_id) REFERENCES parts(id) ON DELETE CASCADE,
   FOREIGN KEY (color_id) REFERENCES colors(id) ON DELETE CASCADE
-);
+ ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 CREATE TABLE IF NOT EXISTS inventory_history (
   id INT AUTO_INCREMENT PRIMARY KEY,
   part_id INT NOT NULL,
@@ -51,7 +51,7 @@ CREATE TABLE IF NOT EXISTS inventory_history (
   FOREIGN KEY (part_id) REFERENCES parts(id) ON DELETE CASCADE,
   FOREIGN KEY (color_id) REFERENCES colors(id) ON DELETE CASCADE,
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
-);
+ ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 CREATE TABLE IF NOT EXISTS sets (
   id INT AUTO_INCREMENT PRIMARY KEY,
   set_name VARCHAR(255) NOT NULL,
@@ -59,26 +59,27 @@ CREATE TABLE IF NOT EXISTS sets (
   type ENUM('official','moc','technic','custom') NOT NULL DEFAULT 'official',
   year INT,
   image VARCHAR(500)
-);
+ ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 CREATE TABLE IF NOT EXISTS set_parts (
+  id INT AUTO_INCREMENT PRIMARY KEY,
   set_id INT NOT NULL,
   part_id INT NOT NULL,
-  color_id INT,
+  color_id INT NULL,
   quantity INT NOT NULL,
-  PRIMARY KEY (set_id, part_id, color_id),
+  UNIQUE KEY uniq_setpart (set_id, part_id, color_id),
   FOREIGN KEY (set_id) REFERENCES sets(id) ON DELETE CASCADE,
   FOREIGN KEY (part_id) REFERENCES parts(id) ON DELETE CASCADE,
   FOREIGN KEY (color_id) REFERENCES colors(id) ON DELETE SET NULL
-);
+ ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 CREATE TABLE IF NOT EXISTS favorites (
   user_id INT NOT NULL,
   set_id INT NOT NULL,
   PRIMARY KEY (user_id, set_id),
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
   FOREIGN KEY (set_id) REFERENCES sets(id) ON DELETE CASCADE
-);
+ ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 CREATE TABLE IF NOT EXISTS migrations (
   id INT AUTO_INCREMENT PRIMARY KEY,
   filename VARCHAR(200) UNIQUE NOT NULL,
   applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+ ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
