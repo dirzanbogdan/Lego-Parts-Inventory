@@ -17,6 +17,7 @@ class ConfigController extends Controller {
             echo 'bad request';
             return;
         }
+        $delay = function() { $d = random_int(3,10); sleep($d); };
         $raw = trim($_POST['code'] ?? '');
         if ($raw === '') {http_response_code(422);echo 'invalid';return;}
         $code = preg_replace('/\\s*\\(Inv\\)\\s*$/i', '', $raw);
@@ -24,6 +25,7 @@ class ConfigController extends Controller {
         if (preg_match('/\\bC=(\\d+)/i', $raw, $cm)) $colorParam = $cm[1];
         $anchor = $colorParam ? ('#T=C&C=' . $colorParam) : '';
         $url = 'https://www.bricklink.com/v2/catalog/catalogitem.page?P=' . urlencode($code) . $anchor;
+        $delay();
         $html = $this->fetch($url);
         if (!$colorParam) {
             if (preg_match('/#T=C&C=(\\d+)/i', $html, $am)) $colorParam = $am[1];
@@ -72,9 +74,11 @@ class ConfigController extends Controller {
             echo 'bad request';
             return;
         }
+        $delay = function() { $d = random_int(3,10); sleep($d); };
         $code = trim($_POST['code'] ?? '');
         if ($code === '') {http_response_code(422);echo 'invalid';return;}
         $url = 'https://www.bricklink.com/v2/catalog/catalogitem.page?S=' . urlencode($code);
+        $delay();
         $html = $this->fetch($url);
         $name = $this->extract($html, '/<title>(.*?)<\/title>/i') ?: $code;
         $img = $this->extract($html, '/<img[^>]+src="([^"]+)"[^>]*class="img-item"/i');
