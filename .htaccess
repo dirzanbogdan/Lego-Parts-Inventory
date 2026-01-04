@@ -1,5 +1,12 @@
 RewriteEngine On
-# Redirect root requests to public/index.php
+Options -Indexes
+DirectoryIndex public/index.php
+
+# Serve static files from /public when requested at root
+RewriteCond %{DOCUMENT_ROOT}/public%{REQUEST_URI} -f
+RewriteRule ^(.*)$ public/$1 [L]
+
+# Fallback to front controller
 RewriteCond %{REQUEST_URI} !^/public/
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d

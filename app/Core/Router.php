@@ -8,6 +8,10 @@ class Router {
     }
     public function dispatch(): void {
         $uri = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
+        if (strpos($uri, '/public/') === 0) {
+            $uri = substr($uri, 7);
+            if ($uri === '' || $uri === false) $uri = '/';
+        }
         if (preg_match('/index\.php$/', $uri)) {
             $uri = '/';
         }
