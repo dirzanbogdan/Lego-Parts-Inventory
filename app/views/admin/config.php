@@ -44,9 +44,11 @@ document.addEventListener('DOMContentLoaded',function(){
         fd.append('csrf','<?php echo htmlspecialchars($csrf); ?>');
         fd.append('code',code);
         fetch(endpoint,{method:'POST',body:fd}).then(function(r){return r.text()}).then(function(){
-          setTimeout(step,1000);
+          var delay=3000+Math.floor(Math.random()*7000);
+          setTimeout(step,delay);
         }).catch(function(){
-          setTimeout(step,1000);
+          var delay=3000+Math.floor(Math.random()*7000);
+          setTimeout(step,delay);
         });
       }
       step();

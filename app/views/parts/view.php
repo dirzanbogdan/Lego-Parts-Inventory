@@ -1,12 +1,17 @@
 <?php $title = 'Detalii piesa'; ?>
 <h2><?php echo htmlspecialchars($part['name']); ?></h2>
 <p>Cod: <?php echo htmlspecialchars($part['part_code']); ?></p>
+<?php if (!empty($part['version'])): ?><p>Versiune: <?php echo htmlspecialchars($part['version']); ?></p><?php endif; ?>
 <?php if (!empty($part['image_url'])): ?>
   <img src="<?php echo htmlspecialchars($part['image_url']); ?>" alt="" class="part-img">
 <?php endif; ?>
 <?php if (!empty($part['bricklink_url'])): ?>
   <p><a href="<?php echo htmlspecialchars($part['bricklink_url']); ?>" target="_blank">Vezi pe BrickLink</a></p>
 <?php endif; ?>
+<?php if (!empty($part['stud_dimensions'])): ?><p>Dimensiuni stud: <?php echo htmlspecialchars($part['stud_dimensions']); ?></p><?php endif; ?>
+<?php if (!empty($part['package_dimensions'])): ?><p>Dimensiuni: <?php echo htmlspecialchars($part['package_dimensions']); ?></p><?php endif; ?>
+<?php if (!empty($part['weight'])): ?><p>Greutate: <?php echo htmlspecialchars($part['weight']); ?> g</p><?php endif; ?>
+<?php if (!empty($part['composition'])): ?><p>Componente: <?php echo htmlspecialchars($part['composition']); ?></p><?php endif; ?>
 <h3>Inventar pe culori</h3>
 <table>
   <thead><tr><th>Culoare</th><th>Cod</th><th>Cantitate</th></tr></thead>

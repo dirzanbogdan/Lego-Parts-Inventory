@@ -1,0 +1,1 @@
+ALTER TABLE parts ADD COLUMN composition VARCHAR(255) NULL;

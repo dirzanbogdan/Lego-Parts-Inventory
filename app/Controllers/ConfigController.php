@@ -17,29 +17,50 @@ class ConfigController extends Controller {
             echo 'bad request';
             return;
         }
-        $code = trim($_POST['code'] ?? '');
-        if ($code === '') {http_response_code(422);echo 'invalid';return;}
-        $url = 'https://www.bricklink.com/v2/catalog/catalogitem.page?P=' . urlencode($code);
+        $raw = trim($_POST['code'] ?? '');
+        if ($raw === '') {http_response_code(422);echo 'invalid';return;}
+        $code = preg_replace('/\\s*\\(Inv\\)\\s*$/i', '', $raw);
+        $colorParam = null;
+        if (preg_match('/\\bC=(\\d+)/i', $raw, $cm)) $colorParam = $cm[1];
+        $anchor = $colorParam ? ('#T=C&C=' . $colorParam) : '';
+        $url = 'https://www.bricklink.com/v2/catalog/catalogitem.page?P=' . urlencode($code) . $anchor;
         $html = $this->fetch($url);
+        if (!$colorParam) {
+            if (preg_match('/#T=C&C=(\\d+)/i', $html, $am)) $colorParam = $am[1];
+        }
         $name = $this->extract($html, '/<title>(.*?)<\/title>/i') ?: $code;
         $img = $this->extract($html, '/<img[^>]+src="([^"]+)"[^>]*class="img-item"/i');
         $localImg = $this->saveImage($img, 'parts', $code);
-        $data = [
-            'name' => $name,
-            'part_code' => $code,
-            'image_url' => $localImg ?: $img,
-            'bricklink_url' => $url,
-        ];
+        $version = null;
+        if (preg_match('/^[^\\s]+?([A-Za-z].*)$/', $code, $vm)) $version = $vm[1];
+        $weight = null;
+        if (preg_match('/Item\\s*Weight:\\s*([\\d\\.]+)/i', $html, $wm)) $weight = (float)$wm[1];
+        $stud = null;
+        if (preg_match('/Stud\\s*Dimensions:\\s*([^<\\n]+)/i', $html, $sm)) $stud = trim($sm[1]);
+        $pkg = null;
+        if (preg_match('/Item\\s*Dim\\w*:\\s*([^<\\n]+)/i', $html, $pm)) $pkg = trim($pm[1]);
+        $composition = null;
+        if (preg_match('/\\((\\s*\\d+[A-Za-z0-9]*\\s*\\/\\s*\\d+[A-Za-z0-9]*\\s*)\\)/', $name, $cmps)) {
+            $composition = trim($cmps[1]);
+        }
         $pdo = Config::db();
         $st = $pdo->prepare('SELECT id FROM parts WHERE part_code=?');
         $st->execute([$code]);
         $id = (int)($st->fetchColumn() ?: 0);
         if ($id) {
-            $s2 = $pdo->prepare('UPDATE parts SET name=?, image_url=?, bricklink_url=? WHERE id=?');
-            $s2->execute([$name, $data['image_url'], $url, $id]);
+            $s2 = $pdo->prepare('UPDATE parts SET name=?, image_url=?, bricklink_url=?, version=?, weight=?, stud_dimensions=?, package_dimensions=?, composition=? WHERE id=?');
+            $s2->execute([$name, ($localImg ?: $img), $url, $version, $weight, $stud, $pkg, $composition, $id]);
         } else {
-            $s3 = $pdo->prepare('INSERT INTO parts (name, part_code, image_url, bricklink_url) VALUES (?,?,?,?)');
-            $s3->execute([$name, $code, $data['image_url'], $url]);
+            $s3 = $pdo->prepare('INSERT INTO parts (name, part_code, image_url, bricklink_url, version, weight, stud_dimensions, package_dimensions, composition) VALUES (?,?,?,?,?,?,?,?,?)');
+            $s3->execute([$name, $code, ($localImg ?: $img), $url, $version, $weight, $stud, $pkg, $composition]);
+            $id = (int)$pdo->lastInsertId();
+        }
+        if ($colorParam) {
+            $cid = $this->ensureColorByCode($colorParam);
+            if ($cid) {
+                $pdo->prepare('INSERT INTO part_colors (part_id, color_id, quantity_in_inventory) VALUES (?,?,0) ON DUPLICATE KEY UPDATE quantity_in_inventory=quantity_in_inventory')
+                    ->execute([$id, $cid]);
+            }
         }
         echo 'ok';
     }
