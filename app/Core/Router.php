@@ -21,8 +21,6 @@ class Router {
             array('POST','/login'),
             array('GET','/register'),
             array('POST','/register'),
-            array('GET','/install'),
-            array('POST','/install'),
         );
         $isOpen = false;
         foreach ($open as $o) {

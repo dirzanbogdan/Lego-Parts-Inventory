@@ -21,6 +21,7 @@
         <span class="user">Salut, <?php echo htmlspecialchars($_SESSION['user']['username']); ?></span>
         <?php if (($_SESSION['user']['role'] ?? 'user') === 'admin'): ?>
           <a href="/admin/update">Update</a>
+          <a href="/admin/config">Config</a>
         <?php endif; ?>
         <a href="/logout">Logout</a>
       <?php else: ?>
