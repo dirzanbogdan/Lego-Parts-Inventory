@@ -17,11 +17,16 @@ class Config {
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
             PDO::ATTR_EMULATE_PREPARES => false,
         ];
+        if (!extension_loaded('pdo_mysql')) {
+            http_response_code(500);
+            echo 'DB driver missing';
+            exit;
+        }
         try {
             $pdo = new PDO($dsn, $user, $pass, $opts);
         } catch (PDOException $e) {
             http_response_code(500);
-            echo 'DB error';
+            echo 'DB connection error';
             exit;
         }
         return $pdo;

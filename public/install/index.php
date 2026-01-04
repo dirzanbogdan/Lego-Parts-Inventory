@@ -13,12 +13,15 @@ function rrmdir(string $dir): void {
     }
     @rmdir($dir);
 }
+$envExists = file_exists(__DIR__ . '/../../app/Config/local_env.php');
 $installed = false;
-try {
-    $pdo = \App\Config\Config::db();
-    $installed = (bool)$pdo->query('SELECT COUNT(*) FROM users')->fetchColumn();
-} catch (\Throwable $e) {
-    $installed = false;
+if ($envExists) {
+    try {
+        $pdo = \App\Config\Config::db();
+        $installed = (bool)$pdo->query('SELECT COUNT(*) FROM users')->fetchColumn();
+    } catch (\Throwable $e) {
+        $installed = false;
+    }
 }
 if ($installed) {
     http_response_code(403);
