@@ -19,6 +19,9 @@
       <a href="/search">Cautare</a>
       <?php if (!empty($_SESSION['user'])): ?>
         <span class="user">Salut, <?php echo htmlspecialchars($_SESSION['user']['username']); ?></span>
+        <?php if (($_SESSION['user']['role'] ?? 'user') === 'admin'): ?>
+          <a href="/admin/update">Update</a>
+        <?php endif; ?>
         <a href="/logout">Logout</a>
       <?php else: ?>
         <a href="/login">Login</a>
