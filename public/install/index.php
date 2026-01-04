@@ -34,6 +34,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
     $dbName = trim($_POST['db_name'] ?? '');
     $dbUser = trim($_POST['db_user'] ?? '');
     $dbPass = trim($_POST['db_pass'] ?? '');
+    $dbPort = trim($_POST['db_port'] ?? '3306');
     $adminUser = trim($_POST['admin_user'] ?? '');
     $adminPass = trim($_POST['admin_pass'] ?? '');
     $updateSecret = trim($_POST['update_secret'] ?? '');
@@ -49,11 +50,24 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
     if ($dbName) $env[] = "putenv('DB_NAME=$dbName');";
     if ($dbUser) $env[] = "putenv('DB_USER=$dbUser');";
     $env[] = "putenv('DB_PASS=" . str_replace("'", "\\'", $dbPass) . "');";
+    if ($dbPort) $env[] = "putenv('DB_PORT=$dbPort');";
     if ($updateSecret) $env[] = "putenv('UPDATE_SECRET=$updateSecret');";
     if ($blKey) $env[] = "putenv('BRICKLINK_CONSUMER_KEY=$blKey');";
     if ($blSecret) $env[] = "putenv('BRICKLINK_CONSUMER_SECRET=$blSecret');";
     if ($blToken) $env[] = "putenv('BRICKLINK_TOKEN=$blToken');";
     if ($blTokenSecret) $env[] = "putenv('BRICKLINK_TOKEN_SECRET=$blTokenSecret');";
+    try {
+        $dsn = "mysql:host=$dbHost;port=$dbPort;dbname=$dbName;charset=utf8mb4";
+        $test = new PDO($dsn, $dbUser, $dbPass, [
+            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+        ]);
+    } catch (Throwable $e) {
+        http_response_code(400);
+        echo '<div style="max-width:700px;margin:20px auto;padding:12px;background:#fee2e2;color:#b91c1c;border-radius:6px;border:1px solid #fca5a5">Conexiunea la baza de date a esuat. Verifica host, port, nume DB, user si parola.</div>';
+        error_log('Install DB test failed: ' . $e->getMessage());
+        exit;
+    }
     file_put_contents($envFile, "<?php\n" . implode("\n", $env) . "\n");
     Migrator::applyAll();
     if ($seedColors) {
@@ -102,6 +116,8 @@ button{margin-top:12px;background:#2563eb;color:#fff;border:none;padding:10px 12
     <input type="text" name="db_user" value="root" required>
     <label>DB Pass</label>
     <input type="password" name="db_pass" value="">
+    <label>DB Port</label>
+    <input type="text" name="db_port" value="3306" required>
     <label>Admin Username</label>
     <input type="text" name="admin_user" value="admin" required>
     <label>Admin Parola</label>
