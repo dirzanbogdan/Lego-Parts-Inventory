@@ -16,6 +16,22 @@ class Router {
             $uri = '/';
         }
         $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
+        $open = array(
+            array('GET','/login'),
+            array('POST','/login'),
+            array('GET','/register'),
+            array('POST','/register'),
+            array('GET','/install'),
+            array('POST','/install'),
+        );
+        $isOpen = false;
+        foreach ($open as $o) {
+            if ($o[0] === $method && $o[1] === $uri) {
+                $isOpen = true;
+                break;
+            }
+        }
+        if (!$isOpen) \App\Core\Security::requireLogin();
         foreach ($this->routes as $route) {
             $m = $route[0];
             $p = $route[1];
