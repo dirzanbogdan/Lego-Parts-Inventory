@@ -209,8 +209,12 @@ class ConfigController extends Controller {
              }
         }
         if (!$instructionsUrl) {
-            // Fallback to canonical instructions endpoint
             $instructionsUrl = 'https://www.bricklink.com/catalogDownloadInstructions.asp?itemType=S&itemNo=' . urlencode($code);
+        }
+        $chk = $this->fetch($instructionsUrl);
+        $codeChk = (int)($this->lastFetchMeta['http_code'] ?? 0);
+        if ($codeChk !== 200 || !$chk) {
+            $instructionsUrl = null;
         }
         $log[] = 'instructions=' . ($instructionsUrl ? '1' : '0');
 

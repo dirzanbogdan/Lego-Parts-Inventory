@@ -124,6 +124,13 @@ class SyncController extends Controller {
         $url = 'https://www.bricklink.com/v2/catalog/catalogitem.page?S=' . urlencode($setCode);
         $html = $this->fetch($url);
         $instructionsUrl = $this->extractInstructionsUrl($html);
+        if ($instructionsUrl) {
+            $chk = $this->fetch($instructionsUrl);
+            $codeChk = (int)($this->lastFetchMeta['http_code'] ?? 0);
+            if ($codeChk !== 200 || !$chk) {
+                $instructionsUrl = null;
+            }
+        }
         $parts = $this->getSetInventory($setCode);
         $pdo = Config::db();
         $stSet = $pdo->prepare('SELECT * FROM sets WHERE set_code=? LIMIT 1');
