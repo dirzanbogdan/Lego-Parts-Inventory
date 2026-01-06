@@ -9,7 +9,7 @@ use App\Models\SetModel;
 use App\Config\Config;
 use PDO;
 class SyncController extends Controller {
-    private array $lastFetchMeta = [];
+    private $lastFetchMeta = [];
     public function syncBrickLink(): void {
         $this->requirePost();
         if (!Security::verifyCsrf($_POST['csrf'] ?? null)) {

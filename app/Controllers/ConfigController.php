@@ -8,7 +8,7 @@ use App\Core\Security;
 use App\Config\Config;
 
 class ConfigController extends Controller {
-    private array $lastFetchMeta = [];
+    private $lastFetchMeta = [];
 
     public function page(): void {
         Security::requireRole('admin');

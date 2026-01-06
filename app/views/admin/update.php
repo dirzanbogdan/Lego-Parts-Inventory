@@ -1,8 +1,11 @@
 <?php $title = 'Update aplicatie'; ?>
 <h2>Update aplicatie</h2>
-<p>Commit local: <strong><?php echo htmlspecialchars($local ?? ''); ?></strong></p>
-<p>Commit remote: <strong><?php echo htmlspecialchars($remote ?? ''); ?></strong></p>
+<p>Commit local: <strong><?php echo htmlspecialchars($local_short ?? (isset($local) ? substr($local, -7) : '')); ?></strong></p>
+<?php if (!empty($remote_short)): ?>
+  <p>Commit remote: <strong><?php echo htmlspecialchars($remote_short); ?></strong></p>
+<?php endif; ?>
 <pre><?php echo htmlspecialchars($status ?? ''); ?></pre>
+<div class="card">Legenda git status: <br>## main = branchul curent; D = fișier șters; ?? = fișier neversionat</div>
 <?php if (!empty($before) || !empty($after)): ?>
   <p>Inainte: <?php echo htmlspecialchars($before ?? ''); ?> • Dupa: <?php echo htmlspecialchars($after ?? ''); ?></p>
   <?php if (!empty($pull_log)): ?><pre><?php echo htmlspecialchars($pull_log); ?></pre><?php endif; ?>

@@ -12,9 +12,15 @@ class UpdateController extends Controller {
         $local = $this->cmd('git rev-parse HEAD');
         $remote = $this->cmd('git ls-remote origin HEAD');
         $status = $this->cmd('git status -sb');
+        $local = trim($local);
+        $remoteHash = trim(explode("\t", trim($remote))[0] ?? '');
+        $localShort = $local ? substr($local, -7) : '';
+        $remoteShort = ($remoteHash && $remoteHash !== $local) ? substr($remoteHash, -7) : '';
         $this->render('admin/update', [
-            'local' => trim($local),
-            'remote' => trim(explode("\t", trim($remote))[0] ?? ''),
+            'local' => $local,
+            'remote' => $remoteHash,
+            'local_short' => $localShort,
+            'remote_short' => $remoteShort,
             'status' => $status,
             'last_backup' => $this->lastBackupPath(),
         ]);
@@ -52,9 +58,14 @@ class UpdateController extends Controller {
         $pull = $this->cmd('git pull 2>&1');
         $migrations = Migrator::applyAll();
         $after = trim($this->cmd('git rev-parse HEAD'));
+        $remoteHash = trim(explode("\t", trim($this->cmd('git ls-remote origin HEAD')))[0] ?? '');
+        $localShort = $after ? substr($after, -7) : '';
+        $remoteShort = ($remoteHash && $remoteHash !== $after) ? substr($remoteHash, -7) : '';
         $this->render('admin/update', [
             'local' => $after,
-            'remote' => trim(explode("\t", trim($this->cmd('git ls-remote origin HEAD')))[0] ?? ''),
+            'remote' => $remoteHash,
+            'local_short' => $localShort,
+            'remote_short' => $remoteShort,
             'status' => $this->cmd('git status -sb'),
             'last_backup' => $this->lastBackupPath(),
             'pull_log' => $pull,
