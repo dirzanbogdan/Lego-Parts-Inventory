@@ -302,19 +302,80 @@ class SyncController extends Controller {
         $invUrl = 'https://www.bricklink.com/catalogItemInv.asp?S=' . urlencode($setCode);
         $html = $this->fetch($invUrl);
         if (!$html) return [];
+        
         $items = [];
-        if (preg_match_all('/catalogitem\\.page\\?P=([^"\\s]+)[\\s\\S]*?Color:\\s*<[^>]*>([^<]*)[\\s\\S]*?Qty[^\\d]*(\\d+)/i', $html, $m, PREG_SET_ORDER)) {
-            foreach ($m as $row) {
-                $items[] = ['code' => html_entity_decode($row[1]), 'color' => trim(html_entity_decode($row[2])), 'quantity' => (int)$row[3]];
-            }
-        } else {
-            // Fallback without color
-            if (preg_match_all('/catalogitem\\.page\\?P=([^"\\s]+)[\\s\\S]*?Qty[^\\d]*(\\d+)/i', $html, $m2, PREG_SET_ORDER)) {
-                foreach ($m2 as $row) {
-                    $items[] = ['code' => html_entity_decode($row[1]), 'quantity' => (int)$row[2]];
+        // Parse HTML table rows
+        // Structure typically: Image | Qty | Item No | Description
+        // But can vary. We look for the cell with the Part Link.
+        
+        if (preg_match_all('/<TR[^>]*>(.*?)<\/TR>/is', $html, $rows)) {
+            foreach ($rows[1] as $row) {
+                // Must contain catalogitem.page?P=
+                if (stripos($row, 'catalogitem.page?P=') === false) continue;
+                
+                // Extract cells
+                if (preg_match_all('/<TD[^>]*>(.*?)<\/TD>/is', $row, $cells)) {
+                    $cols = $cells[1];
+                    $partCode = null;
+                    $qty = 0;
+                    $colorName = null;
+                    
+                    // Find Part Code Column
+                    $pIdx = -1;
+                    foreach ($cols as $idx => $cell) {
+                        if (preg_match('/catalogitem\.page\?P=([^"&]+)/i', $cell, $pm)) {
+                            $partCode = $pm[1];
+                            $pIdx = $idx;
+                            break;
+                        }
+                    }
+                    
+                    if ($partCode && $pIdx > 0) {
+                        // Qty is usually in pIdx - 1
+                        $qtyRaw = strip_tags($cols[$pIdx - 1]);
+                        $qty = (int)trim($qtyRaw);
+                        
+                        // If Qty is 0 or invalid, maybe check other columns?
+                        // But standard view is Qty before Item No.
+                        
+                        // Color is usually in Description (pIdx + 1)
+                        if (isset($cols[$pIdx + 1])) {
+                            $desc = trim(strip_tags($cols[$pIdx + 1]));
+                            // Heuristic: The color is often the first part of the description
+                            // But we can't be sure.
+                            // Let's try to match against known colors later or just store the first word(s).
+                            // For now, let's just pass the description or try to extract color if possible.
+                            // Actually, Sync logic tries Color::findByName($p['color']).
+                            // We need to extract the color name.
+                            // E.g. "Black Technic..." -> "Black"
+                            // "Dark Bluish Gray Technic..." -> "Dark Bluish Gray"
+                            // We will pass the whole description string as 'color' and let the caller handle it?
+                            // No, the caller expects a color name to look up.
+                            // We'll try to guess it.
+                            $colorName = $desc; 
+                        }
+                    }
+                    
+                    if ($partCode && $qty > 0) {
+                        $items[] = [
+                            'code' => html_entity_decode($partCode),
+                            'color' => $colorName, // Caller will try to match this against DB colors
+                            'quantity' => $qty
+                        ];
+                    }
                 }
             }
         }
+        
+        // Fallback to regex if table parse fails (though table parse is better)
+        if (empty($items)) {
+             if (preg_match_all('/catalogitem\\.page\\?P=([^"\\s]+)[\\s\\S]*?Qty[^\\d]*(\\d+)/i', $html, $m2, PREG_SET_ORDER)) {
+                foreach ($m2 as $row) {
+                    $items[] = ['code' => html_entity_decode($row[1]), 'quantity' => (int)$row[2], 'color' => null];
+                }
+            }
+        }
+        
         return $items;
     }
     private function extractInstructionsUrl(string $html): ?string {

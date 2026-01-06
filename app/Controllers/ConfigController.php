@@ -254,57 +254,84 @@ class ConfigController extends Controller {
         sleep(random_int(3, 5));
         $invHtml = $this->fetch($invUrl);
         $pdo = Config::db();
+        
+        // Load all known colors for matching
+        $stmt = $pdo->query("SELECT name FROM colors");
+        $colorNames = $stmt->fetchAll(\PDO::FETCH_COLUMN);
+        // Sort by length desc to match "Light Bluish Gray" before "Gray"
+        usort($colorNames, function($a, $b) {
+            return strlen($b) - strlen($a);
+        });
+
         $count = 0;
-        if ($type === 'S') {
-            // Prefer parsing by color name in the inventory table
-            $matches = [];
-            if (preg_match_all('/catalogitem\\.page\\?P=([^"\\s]+)[\\s\\S]*?Color:\\s*<[^>]*>([^<]*)[\\s\\S]*?Qty[^\\d]*(\\d+)/i', $invHtml, $matches, PREG_SET_ORDER)) {
-                foreach ($matches as $m) {
-                    $pcode = trim(html_entity_decode($m[1]));
-                    $colorName = trim(html_entity_decode($m[2]));
-                    $qty = (int)trim($m[3]);
-                    if ($pcode === '' || $qty <= 0) continue;
-                    $childId = $this->ensurePart($pcode);
-                    $cId = $this->ensureColorByName($colorName);
-                    if ($childId) {
-                        $stp = $pdo->prepare('INSERT INTO set_parts (set_id, part_id, color_id, quantity) VALUES (?,?,?,?) ON DUPLICATE KEY UPDATE quantity=VALUES(quantity)');
-                        $stp->execute([$parentId, $childId, $cId ?: null, $qty]);
-                        $count++;
+        
+        // Parse HTML table rows
+        if (preg_match_all('/<TR[^>]*>(.*?)<\/TR>/is', $invHtml, $rows)) {
+            foreach ($rows[1] as $row) {
+                // Must contain catalogitem.page?P=
+                if (stripos($row, 'catalogitem.page?P=') === false) continue;
+                
+                // Extract cells
+                if (preg_match_all('/<TD[^>]*>(.*?)<\/TD>/is', $row, $cells)) {
+                    $cols = $cells[1];
+                    $pcode = null;
+                    $qty = 0;
+                    $colorName = null;
+                    
+                    // Find Part Code Column
+                    $pIdx = -1;
+                    foreach ($cols as $idx => $cell) {
+                        if (preg_match('/catalogitem\.page\?P=([^"&]+)/i', $cell, $pm)) {
+                            $pcode = $pm[1];
+                            $pIdx = $idx;
+                            break;
+                        }
                     }
-                }
-            } else {
-                // Fallback without color
-                if (preg_match_all('/catalogitem\\.page\\?P=([^"\\s]+)[\\s\\S]*?Qty[^\\d]*(\\d+)/i', $invHtml, $m2, PREG_SET_ORDER)) {
-                    foreach ($m2 as $row) {
-                        $pcode = trim(html_entity_decode($row[1]));
-                        $qty = (int)$row[2];
-                        if ($pcode === '' || $qty <= 0) continue;
+                    
+                    if ($pcode && $pIdx > 0) {
+                        // Qty is usually in pIdx - 1
+                        $qtyRaw = strip_tags($cols[$pIdx - 1]);
+                        $qty = (int)trim($qtyRaw);
+                        
+                        // Description (for color) is usually in pIdx + 1
+                        if (isset($cols[$pIdx + 1])) {
+                            $desc = trim(strip_tags($cols[$pIdx + 1]));
+                            // Match against known colors
+                            foreach ($colorNames as $cn) {
+                                if (stripos($desc, $cn) === 0) {
+                                    // Check if followed by space or end
+                                    $len = strlen($cn);
+                                    if (strlen($desc) === $len || ctype_space($desc[$len]) || $desc[$len] === ',') {
+                                        $colorName = $cn;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    
+                    if ($pcode && $qty > 0) {
                         $childId = $this->ensurePart($pcode);
                         if ($childId) {
-                            $stp = $pdo->prepare('INSERT INTO set_parts (set_id, part_id, color_id, quantity) VALUES (?,?,?,?) ON DUPLICATE KEY UPDATE quantity=VALUES(quantity)');
-                            $stp->execute([$parentId, $childId, null, $qty]);
+                            $cId = null;
+                            if ($colorName) {
+                                $cId = $this->ensureColorByName($colorName);
+                            }
+                            
+                            if ($type === 'S') {
+                                $stp = $pdo->prepare('INSERT INTO set_parts (set_id, part_id, color_id, quantity) VALUES (?,?,?,?) ON DUPLICATE KEY UPDATE quantity=VALUES(quantity)');
+                                $stp->execute([$parentId, $childId, $cId ?: null, $qty]);
+                            } else {
+                                $stp = $pdo->prepare('INSERT INTO part_parts (parent_part_id, child_part_id, quantity) VALUES (?,?,?) ON DUPLICATE KEY UPDATE quantity=VALUES(quantity)');
+                                $stp->execute([$parentId, $childId, $qty]);
+                            }
                             $count++;
                         }
                     }
                 }
             }
-        } else {
-            preg_match_all('/catalogitem.page\?P=([^"&]+)[\s\S]*?Qty:\s*(\d+)/is', $invHtml, $matches, PREG_SET_ORDER);
-            if (empty($matches)) {
-                preg_match_all('/catalogitem.page\?P=([^"&]+)[\s\S]*?Quantity[^0-9]*(\d+)/is', $invHtml, $matches, PREG_SET_ORDER);
-            }
-            foreach ($matches as $m) {
-                $pcode = trim($m[1]);
-                $qty = (int)trim($m[2]);
-                if ($pcode === '' || $qty <= 0) continue;
-                $childId = $this->ensurePart($pcode);
-                if ($childId) {
-                    $pp = $pdo->prepare('INSERT INTO part_parts (parent_part_id, child_part_id, quantity) VALUES (?,?,?) ON DUPLICATE KEY UPDATE quantity=VALUES(quantity)');
-                    $pp->execute([$parentId, $childId, $qty]);
-                    $count++;
-                }
-            }
         }
+        
         return $count;
     }
     private function extractSectionItems(string $html, string $sectionTitle): array {
