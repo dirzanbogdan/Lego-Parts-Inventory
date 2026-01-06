@@ -115,8 +115,9 @@ class ConfigController extends Controller {
         }
 
         // Scrape inventory if (Inv) or composition detected
+        $invCount = 0;
         if (stripos($raw, '(Inv)') !== false || $composition) {
-             $this->scrapeInventory('P', $code, $id);
+             $invCount = $this->scrapeInventory('P', $code, $id);
         }
 
         if ($colorParam) {
@@ -127,7 +128,17 @@ class ConfigController extends Controller {
             }
         }
 
-        echo 'ok';
+        header('Content-Type: application/json');
+        echo json_encode([
+            'status' => 'ok',
+            'type' => 'part',
+            'code' => $code,
+            'id' => $id,
+            'name' => $name,
+            'related_count' => count($relatedItems),
+            'inv_count' => $invCount,
+            'color_code' => $colorParam
+        ]);
     }
 
     public function scrapeSetsOne(): void {
@@ -186,11 +197,20 @@ class ConfigController extends Controller {
             $sid = (int)$pdo->lastInsertId();
         }
 
-        $this->scrapeInventory('S', $code, $sid);
-        echo 'ok';
+        $invCount = $this->scrapeInventory('S', $code, $sid);
+        header('Content-Type: application/json');
+        echo json_encode([
+            'status' => 'ok',
+            'type' => 'set',
+            'code' => $code,
+            'id' => $sid,
+            'name' => $name,
+            'instructions_url' => $instructionsUrl,
+            'inv_count' => $invCount
+        ]);
     }
 
-    private function scrapeInventory(string $type, string $code, int $parentId): void {
+    private function scrapeInventory(string $type, string $code, int $parentId): int {
         $invUrl = 'https://www.bricklink.com/catalogItemInv.asp?' . $type . '=' . urlencode($code);
         // Delay before inventory scrape to avoid rate limit
         sleep(random_int(3, 5));
@@ -199,6 +219,7 @@ class ConfigController extends Controller {
         preg_match_all('/catalogitem.page\?P=([^"&]+).*?color=([^"&]+).*?Qty:\s*(\d+)/is', $invHtml, $matches, PREG_SET_ORDER);
         
         $pdo = Config::db();
+        $count = 0;
         foreach ($matches as $m) {
             $pcode = trim($m[1]);
             $colorCode = trim($m[2]);
@@ -213,13 +234,15 @@ class ConfigController extends Controller {
                 if ($type === 'S') {
                     $stp = $pdo->prepare('INSERT INTO set_parts (set_id, part_id, color_id, quantity) VALUES (?,?,?,?) ON DUPLICATE KEY UPDATE quantity=VALUES(quantity)');
                     $stp->execute([$parentId, $childId, $cId ?: null, $qty]);
+                    $count++;
                 } else {
-                    // For Parts, we store in part_parts. We ignore color for now as per schema.
                     $pp = $pdo->prepare('INSERT INTO part_parts (parent_part_id, child_part_id, quantity) VALUES (?,?,?) ON DUPLICATE KEY UPDATE quantity=VALUES(quantity)');
                     $pp->execute([$parentId, $childId, $qty]);
+                    $count++;
                 }
             }
         }
+        return $count;
     }
 
     public function scrapeColors(): void {
