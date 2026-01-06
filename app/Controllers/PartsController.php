@@ -62,16 +62,34 @@ class PartsController extends Controller {
         $inv = Inventory::getByPart($id);
 
         // Related Items
-        $relatedItems = json_decode($part['related_items'] ?? '[]', true);
-        if (is_array($relatedItems)) {
+        $relatedItemsRaw = json_decode($part['related_items'] ?? '[]', true);
+        $relatedItems = [];
+        if (is_array($relatedItemsRaw)) {
+            if (array_keys($relatedItemsRaw) !== range(0, count($relatedItemsRaw) - 1)) {
+                $sections = ['counterparts', 'alternate_molds', 'alt_molds', 'related'];
+                foreach ($sections as $sec) {
+                    if (!empty($relatedItemsRaw[$sec]) && is_array($relatedItemsRaw[$sec])) {
+                        foreach ($relatedItemsRaw[$sec] as $it) {
+                            if (is_string($it)) $it = ['code' => $it];
+                            if (!empty($it['code']) && is_string($it['code'])) {
+                                $relatedItems[] = ['code' => $it['code'], 'name' => $it['name'] ?? ''];
+                            }
+                        }
+                    }
+                }
+            } else {
+                foreach ($relatedItemsRaw as $it) {
+                    if (is_string($it)) $it = ['code' => $it];
+                    if (!empty($it['code']) && is_string($it['code'])) {
+                        $relatedItems[] = ['code' => $it['code'], 'name' => $it['name'] ?? ''];
+                    }
+                }
+            }
             foreach ($relatedItems as &$item) {
-                // Check if part exists in our DB to provide link
                 $p = Part::findByCode($item['code']);
                 $item['id'] = $p['id'] ?? null;
-                // Also get inventory for this related item if exists
                 if ($item['id']) {
-                     $itemInv = Inventory::getByPart($item['id']);
-                     $item['inventory'] = $itemInv; // Attach inventory data
+                    $item['inventory'] = Inventory::getByPart($item['id']);
                 }
             }
             unset($item);

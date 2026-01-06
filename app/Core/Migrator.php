@@ -53,7 +53,18 @@ class Migrator {
         foreach ($statements as $s) {
             $trim = trim(self::stripComments($s));
             if ($trim === '') continue;
-            $pdo->exec($trim);
+            try {
+                $pdo->exec($trim);
+            } catch (\PDOException $e) {
+                $code = $e->getCode();
+                $msg = $e->getMessage();
+                $dupCol = (strpos($msg, 'Duplicate column name') !== false) || ($code === '42S21');
+                $exists = (strpos($msg, 'already exists') !== false) || (strpos($msg, 'Duplicate key name') !== false);
+                if ($dupCol || $exists) {
+                    continue;
+                }
+                throw $e;
+            }
         }
     }
     private static function stripComments(string $s): string {
