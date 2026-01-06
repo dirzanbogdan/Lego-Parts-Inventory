@@ -9,6 +9,7 @@ use App\Models\SetModel;
 use App\Config\Config;
 use PDO;
 class SyncController extends Controller {
+    private array $lastFetchMeta = [];
     public function syncBrickLink(): void {
         $this->requirePost();
         if (!Security::verifyCsrf($_POST['csrf'] ?? null)) {
@@ -119,8 +120,41 @@ class SyncController extends Controller {
         }
     }
     private function fetch(string $url): string {
-        $opts = ['http' => ['method' => 'GET', 'header' => "User-Agent: LegoInventory\r\n"]];
-        return @file_get_contents($url, false, stream_context_create($opts)) ?: '';
+        $this->lastFetchMeta = [];
+        $ch = curl_init($url);
+        $ua = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+        $hdrs = [
+            'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+            'Accept-Language: en-US,en;q=0.9,ro;q=0.8',
+            'Referer: https://www.bricklink.com/',
+        ];
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_FOLLOWLOCATION => true,
+            CURLOPT_MAXREDIRS => 5,
+            CURLOPT_CONNECTTIMEOUT => 10,
+            CURLOPT_TIMEOUT => 20,
+            CURLOPT_USERAGENT => $ua,
+            CURLOPT_HTTPHEADER => $hdrs,
+            CURLOPT_ENCODING => 'gzip,deflate',
+            CURLOPT_SSL_VERIFYPEER => true,
+            CURLOPT_SSL_VERIFYHOST => 2,
+        ]);
+        $html = curl_exec($ch);
+        $err = curl_error($ch);
+        $code = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $eff = (string)curl_getinfo($ch, CURLINFO_EFFECTIVE_URL);
+        if ($html === false || $code === 0) {
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
+            $html = curl_exec($ch);
+            $err = curl_error($ch);
+            $code = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $eff = (string)curl_getinfo($ch, CURLINFO_EFFECTIVE_URL);
+        }
+        curl_close($ch);
+        $this->lastFetchMeta = ['http_code' => $code, 'error' => $err, 'effective_url' => $eff];
+        return is_string($html) ? $html : '';
     }
     private function extract(string $html, string $pattern): ?string {
         if (!$html) return null;
