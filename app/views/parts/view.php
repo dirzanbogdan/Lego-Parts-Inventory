@@ -10,6 +10,11 @@
     <div class="actions">
         <button id="btn-edit" class="btn" onclick="document.getElementById('edit-form').style.display='block';">Edit</button>
         <button id="btn-changelog" class="btn" onclick="loadChangelog(<?php echo $part['id']; ?>, 'part')">Changelog</button>
+        <form method="post" action="/sync/bricklink" style="display:inline;">
+            <input type="hidden" name="csrf" value="<?php echo htmlspecialchars($csrf ?? ''); ?>">
+            <input type="hidden" name="part_code" value="<?php echo htmlspecialchars($part['part_code']); ?>">
+            <button type="submit" class="btn">Sync BL</button>
+        </form>
     </div>
 </div>
 

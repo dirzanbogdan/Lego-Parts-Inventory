@@ -10,6 +10,11 @@
         <?php if (!empty($set['instructions_url'])): ?>
             <a href="<?php echo htmlspecialchars($set['instructions_url']); ?>" target="_blank" class="btn">Instructiuni</a>
         <?php endif; ?>
+        <form method="post" action="/sync/bricklink_set" style="display:inline;">
+            <input type="hidden" name="csrf" value="<?php echo htmlspecialchars($csrf); ?>">
+            <input type="hidden" name="set_code" value="<?php echo htmlspecialchars($set['set_code']); ?>">
+            <button type="submit" class="btn">Sync BL</button>
+        </form>
         <form method="post" action="/sets/favorite" style="display:inline;">
             <input type="hidden" name="csrf" value="<?php echo htmlspecialchars($csrf); ?>">
             <input type="hidden" name="set_id" value="<?php echo (int)$set['id']; ?>">
@@ -64,4 +69,3 @@
     <?php endforeach; ?>
   </tbody>
 </table>
-
