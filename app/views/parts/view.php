@@ -6,7 +6,10 @@
 </div>
 
 <div class="part-header" style="display:flex; justify-content:space-between; align-items:center; margin-top:20px; border-bottom:1px solid #ccc; padding-bottom:10px;">
-    <h2><?php echo htmlspecialchars($part['name']); ?></h2>
+    <div>
+        <h2 style="margin:0;"><?php echo htmlspecialchars($part['name']); ?></h2>
+        <div style="color:#555">Item no.: <?php echo htmlspecialchars($part['part_code']); ?></div>
+    </div>
     <div class="actions">
         <button id="btn-edit" class="btn" onclick="document.getElementById('edit-form').style.display='block';">Edit</button>
         <button id="btn-changelog" class="btn" onclick="loadChangelog(<?php echo $part['id']; ?>, 'part')">Changelog</button>
@@ -53,11 +56,15 @@
     </div>
     <div class="info-section" style="flex:1;">
         <table class="info-table">
-            <tr><td style="font-weight:bold;">Item Info:</td><td><?php echo nl2br(htmlspecialchars($part['name'])); ?></td></tr>
-            <tr><td style="font-weight:bold;">Years Released:</td><td><?php echo htmlspecialchars($part['years_released'] ?? '?'); ?></td></tr>
-            <tr><td style="font-weight:bold;">Weight:</td><td><?php echo htmlspecialchars($part['weight'] ?? '?'); ?> g</td></tr>
-            <tr><td style="font-weight:bold;">Stud Dim.:</td><td><?php echo htmlspecialchars($part['stud_dimensions'] ?? '?'); ?></td></tr>
-            <tr><td style="font-weight:bold;">Pack. Dim.:</td><td><?php echo htmlspecialchars($part['package_dimensions'] ?? '?'); ?></td></tr>
+            <tr>
+                <td style="font-weight:bold; width:180px;">Item Info.</td>
+                <td>
+                    Years Released: <?php echo htmlspecialchars($part['years_released'] ?? '?'); ?><br>
+                    Weight: <?php echo htmlspecialchars($part['weight'] ?? '?'); ?> g<br>
+                    Stud Dim.: <?php echo htmlspecialchars($part['stud_dimensions'] ?? ''); ?><br>
+                    Pack. Dim.: <?php echo htmlspecialchars($part['package_dimensions'] ?? '?'); ?>
+                </td>
+            </tr>
             <tr>
                 <td style="font-weight:bold;">Item Consists Of:</td>
                 <td>
@@ -81,60 +88,77 @@
 <div class="related-section" style="margin-top:30px; border-top:1px solid #eee; padding-top:20px;">
     <h3>Related Items</h3>
     <p>This Item fits with and is usually used with the following Item(s):</p>
+    <?php if (empty($relatedItems)): ?>
+        <div>No related items found.</div>
+    <?php else: ?>
+        <div>
+            <?php foreach ($relatedItems as $item): ?>
+                <div>
+                    Part <?php echo htmlspecialchars($item['code']); ?>
+                    <?php if (!empty($item['id'])): ?>
+                        (<a href="/parts/view?id=<?php echo (int)$item['id']; ?>">Link</a>)
+                    <?php endif; ?>
+                    <?php if (!empty($item['name'])): ?>
+                        <?php echo htmlspecialchars($item['name']); ?>
+                    <?php endif; ?>
+                </div>
+            <?php endforeach; ?>
+        </div>
+    <?php endif; ?>
+    </div>
+
+<div class="inventory-section" style="margin-top:30px; border-top:1px solid #eee; padding-top:20px;">
+    <h3>Inventar</h3>
     <table class="data-table">
         <thead>
             <tr>
-                <th>Part</th>
-                <th>Description</th>
-                <th>Color</th>
-                <th>Quantity</th>
+                <th>Culoare</th>
+                <th>Cantitate</th>
                 <th>Condition</th>
-                <th>Price (Lei)</th>
-                <th>Actions</th>
+                <th>Pret achizitie (Lei)</th>
+                <th>Actiuni</th>
             </tr>
         </thead>
         <tbody>
-            <?php if (empty($relatedItems)): ?>
-                <tr><td colspan="7">No related items found.</td></tr>
+            <?php if (empty($inventory)): ?>
+                <tr><td colspan="5">Nu exista inregistrari de inventar pentru aceasta piesa.</td></tr>
             <?php else: ?>
-                <?php foreach ($relatedItems as $item): ?>
-                    <tr data-part-id="<?php echo $item['id'] ?? ''; ?>" data-part-code="<?php echo htmlspecialchars($item['code']); ?>">
-                        <td>
-                            <?php if ($item['id']): ?>
-                                <a href="/parts/view?id=<?php echo $item['id']; ?>"><?php echo htmlspecialchars($item['code']); ?></a>
-                            <?php else: ?>
-                                <?php echo htmlspecialchars($item['code']); ?> (Not in DB)
-                            <?php endif; ?>
+                <?php foreach ($inventory as $row): ?>
+                    <tr>
+                        <td><?php echo htmlspecialchars($row['color_name']); ?></td>
+                        <td><?php echo (int)$row['quantity_in_inventory']; ?>
+                            <form method="post" action="/inventory/update" class="inline">
+                                <input type="hidden" name="csrf" value="<?php echo htmlspecialchars($csrf ?? ''); ?>">
+                                <input type="hidden" name="part_id" value="<?php echo (int)$part['id']; ?>">
+                                <input type="hidden" name="color_id" value="<?php echo (int)$row['color_id']; ?>">
+                                <input type="hidden" name="delta" value="1">
+                                <input type="hidden" name="reason" value="adjust +1 from part view">
+                                <button type="submit" class="btn">+1</button>
+                            </form>
+                            <form method="post" action="/inventory/update" class="inline">
+                                <input type="hidden" name="csrf" value="<?php echo htmlspecialchars($csrf ?? ''); ?>">
+                                <input type="hidden" name="part_id" value="<?php echo (int)$part['id']; ?>">
+                                <input type="hidden" name="color_id" value="<?php echo (int)$row['color_id']; ?>">
+                                <input type="hidden" name="delta" value="-1">
+                                <input type="hidden" name="reason" value="adjust -1 from part view">
+                                <button type="submit" class="btn danger">-1</button>
+                            </form>
                         </td>
-                        <td><?php echo htmlspecialchars($item['name']); ?></td>
-                        
-                        <!-- Inventory Form -->
-                        <?php if ($item['id']): ?>
-                            <td>
-                                <select class="inv-color">
-                                    <option value="">Select Color</option>
-                                    <!-- Populate with all colors via JS or generic list -->
-                                    <option value="1">Black</option>
-                                    <option value="11">Black</option> <!-- Common code -->
-                                    <!-- Ideally we fetch colors from DB -->
+                        <td><?php echo htmlspecialchars($row['condition_state'] ?? 'New'); ?></td>
+                        <td><?php echo htmlspecialchars($row['purchase_price'] ?? ''); ?></td>
+                        <td>
+                            <form method="post" action="/inventory/updateDetails">
+                                <input type="hidden" name="csrf" value="<?php echo htmlspecialchars($csrf ?? ''); ?>">
+                                <input type="hidden" name="part_id" value="<?php echo (int)$part['id']; ?>">
+                                <input type="hidden" name="color_id" value="<?php echo (int)$row['color_id']; ?>">
+                                <select name="condition">
+                                    <option value="New" <?php echo (($row['condition_state'] ?? 'New')==='New')?'selected':''; ?>>New</option>
+                                    <option value="Used" <?php echo (($row['condition_state'] ?? 'New')==='Used')?'selected':''; ?>>Used</option>
                                 </select>
-                            </td>
-                            <td><input type="number" class="inv-qty" value="0" style="width:60px;"></td>
-                            <td>
-                                <select class="inv-cond">
-                                    <option value="New">New</option>
-                                    <option value="Used">Used</option>
-                                </select>
-                            </td>
-                            <td><input type="text" class="inv-price" placeholder="0.00" style="width:80px;"></td>
-                            <td>
-                                <button type="button" class="btn-small" onclick="saveInventory(this, <?php echo $item['id']; ?>)">Save</button>
-                            </td>
-                        <?php else: ?>
-                            <td colspan="5">
-                                <button type="button" class="btn-small" onclick="importPart('<?php echo $item['code']; ?>')">Import to DB</button>
-                            </td>
-                        <?php endif; ?>
+                                <input type="text" name="price" value="<?php echo htmlspecialchars($row['purchase_price'] ?? ''); ?>" placeholder="0.00" style="width:80px;">
+                                <button type="submit" class="btn">Salveaza</button>
+                            </form>
+                        </td>
                     </tr>
                 <?php endforeach; ?>
             <?php endif; ?>
@@ -156,14 +180,13 @@
         <span class="close" onclick="document.getElementById('consists-popup').style.display='none'" style="float:right; cursor:pointer; font-size:24px;">&times;</span>
         <h3>Item Consists Of</h3>
         <table class="data-table">
-            <thead><tr><th>Image</th><th>Item No.</th><th>Description</th><th>Qty</th></tr></thead>
+            <thead><tr><th>Image</th><th>Item No.</th><th>Description</th></tr></thead>
             <tbody>
                 <?php foreach ($consistOfParts as $cp): ?>
                     <tr>
                         <td><img src="<?php echo htmlspecialchars($cp['image_url']); ?>" width="30"></td>
                         <td><a href="/parts/view?id=<?php echo $cp['id']; ?>"><?php echo htmlspecialchars($cp['part_code']); ?></a></td>
                         <td><?php echo htmlspecialchars($cp['name']); ?></td>
-                        <td><?php echo htmlspecialchars($cp['quantity']); ?></td>
                     </tr>
                 <?php endforeach; ?>
             </tbody>
@@ -187,22 +210,6 @@ function loadChangelog(id, type) {
                 </tr>`;
             });
         });
-}
-
-function saveInventory(btn, partId) {
-    const row = btn.closest('tr');
-    const colorId = row.querySelector('.inv-color').value; // In real app, value should be ID
-    const qty = row.querySelector('.inv-qty').value;
-    const cond = row.querySelector('.inv-cond').value;
-    const price = row.querySelector('.inv-price').value;
-    
-    // In a real app we need color IDs. Since I hardcoded, this is partial.
-    // I need to fetch colors.
-    // Assuming user selects valid color.
-    
-    // Mock AJAX call
-    alert('Saving inventory for part ' + partId + ': Qty=' + qty + ', Cond=' + cond + ', Price=' + price);
-    // Implementation of inventory/update endpoint needed
 }
 
 function importPart(code) {

@@ -32,6 +32,7 @@ class SyncController extends Controller {
         
         $image = $this->extract($html, '/<img[^>]+src="([^"]+)"[^>]*class="img-item"/i') ?: null;
         if ($image && strpos($image, '//') === 0) $image = 'https:' . $image;
+        $localImg = $this->saveImage($image, 'parts', $partCode);
         
         $weight = $this->extract($html, '/Weight:.*?([\d\.]+)\s*g/is');
         $stud = $this->extract($html, '/Stud Dim\.:.*?([\d\s\.]+)\s*in/is');
@@ -45,7 +46,7 @@ class SyncController extends Controller {
         $data = [
             'name' => trim($name),
             'part_code' => $partCode,
-            'image_url' => $image,
+            'image_url' => $localImg ?: $image,
             'bricklink_url' => $url,
             'weight' => $weight ? (float)$weight : null,
             'stud_dimensions' => $stud,
@@ -155,6 +156,20 @@ class SyncController extends Controller {
         curl_close($ch);
         $this->lastFetchMeta = ['http_code' => $code, 'error' => $err, 'effective_url' => $eff];
         return is_string($html) ? $html : '';
+    }
+    private function saveImage(?string $url, string $type, string $code): ?string {
+        if (!$url) return null;
+        $data = @file_get_contents($url);
+        if (!$data) return null;
+        $dir = __DIR__ . '/../../public/uploads/' . $type;
+        if (!is_dir($dir)) @mkdir($dir, 0775, true);
+        $ext = 'jpg';
+        $path = $dir . '/' . preg_replace('/[^a-zA-Z0-9_\-]/', '_', $code) . '.' . $ext;
+        @file_put_contents($path, $data);
+        if (file_exists($path)) {
+            return '/uploads/' . $type . '/' . basename($path);
+        }
+        return null;
     }
     private function extract(string $html, string $pattern): ?string {
         if (!$html) return null;
