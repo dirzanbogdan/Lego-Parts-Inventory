@@ -24,7 +24,21 @@ class SetsController extends Controller {
         }
         $parts = SetModel::parts($id);
         $progress = SetModel::setProgress($id);
-        $this->render('sets/view', ['set' => $set, 'parts' => $parts, 'progress' => $progress]);
+        $debug = null;
+        if ((int)($_GET['debug'] ?? 0) === 1) {
+            $pdo = \App\Config\Config::db();
+            $cntParts = (int)($pdo->prepare('SELECT COUNT(*) FROM set_parts WHERE set_id=?')->execute([$id]) ? $pdo->prepare('SELECT COUNT(*) FROM set_parts WHERE set_id=?')->execute([$id]) : 0);
+            // fetch sample set_parts rows
+            $st = $pdo->prepare('SELECT sp.*, p.name, p.part_code, c.color_name FROM set_parts sp LEFT JOIN parts p ON p.id=sp.part_id LEFT JOIN colors c ON c.id=sp.color_id WHERE sp.set_id=? ORDER BY sp.id DESC LIMIT 20');
+            $st->execute([$id]);
+            $rows = $st->fetchAll();
+            $debug = [
+                'set_record' => $set,
+                'set_parts_count' => $cntParts,
+                'set_parts_sample' => $rows,
+            ];
+        }
+        $this->render('sets/view', ['set' => $set, 'parts' => $parts, 'progress' => $progress, 'debug' => $debug]);
     }
     public function create(): void {
         $this->requirePost();
@@ -91,4 +105,3 @@ class SetsController extends Controller {
         echo 'Missing: ' . $progress['missing'];
     }
 }
-

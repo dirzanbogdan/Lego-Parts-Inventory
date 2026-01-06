@@ -123,6 +123,9 @@ class SyncController extends Controller {
         }
         $url = 'https://www.bricklink.com/v2/catalog/catalogitem.page?S=' . urlencode($setCode);
         $html = $this->fetch($url);
+        $syncLog = [];
+        $syncLog[] = 'fetch_set_url=' . $url;
+        $syncLog[] = 'fetch_set_len=' . strlen($html);
         $instructionsUrl = $this->extractInstructionsUrl($html);
         if ($instructionsUrl) {
             $chk = $this->fetch($instructionsUrl);
@@ -131,6 +134,7 @@ class SyncController extends Controller {
                 $instructionsUrl = null;
             }
         }
+        $syncLog[] = 'instructions_valid=' . ($instructionsUrl ? '1' : '0');
         $parts = $this->getSetInventory($setCode);
         $pdo = Config::db();
         $stSet = $pdo->prepare('SELECT * FROM sets WHERE set_code=? LIMIT 1');
@@ -154,6 +158,15 @@ class SyncController extends Controller {
                     $ins = $pdo->prepare('INSERT INTO set_parts (set_id, part_id, color_id, quantity) VALUES (?,?,?,?) ON DUPLICATE KEY UPDATE quantity=VALUES(quantity)');
                     $ins->execute([$setId, (int)$part['id'], $colorId, (int)$p['quantity']]);
                 }
+                $syncLog[] = 'inv_set_count=' . count($parts);
+            } else {
+                $syncLog[] = 'inv_set_count=0';
+            }
+            try {
+                $uid = $_SESSION['user']['id'] ?? null;
+                $stLog = $pdo->prepare("INSERT INTO entity_history (entity_type, entity_id, user_id, changes) VALUES ('set', ?, ?, ?)");
+                $stLog->execute([$setId, $uid, json_encode($syncLog)]);
+            } catch (\Throwable $e) {
             }
         }
         if (!empty($setId)) {

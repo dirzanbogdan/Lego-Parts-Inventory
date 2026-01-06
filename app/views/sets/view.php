@@ -10,6 +10,8 @@
         <?php if (!empty($set['instructions_url'])): ?>
             <a href="<?php echo htmlspecialchars($set['instructions_url']); ?>" target="_blank" class="btn">Instructiuni</a>
         <?php endif; ?>
+        <button type="button" class="btn" onclick="document.getElementById('debug-panel').style.display='block'">Debug</button>
+        <button type="button" class="btn" onclick="loadSetChangelog(<?php echo (int)$set['id']; ?>)">Changelog</button>
         <form method="post" action="/sync/bricklink_set" style="display:inline;">
             <input type="hidden" name="csrf" value="<?php echo htmlspecialchars($csrf); ?>">
             <input type="hidden" name="set_code" value="<?php echo htmlspecialchars($set['set_code']); ?>">
@@ -42,6 +44,49 @@
     </div>
 </div>
 
+<div id="debug-panel" class="card" style="display:<?php echo !empty($_GET['debug'])?'block':'none'; ?>; margin-top:20px;">
+    <h3>Debug set</h3>
+    <p>Parametri: set_code=<?php echo htmlspecialchars($set['set_code']); ?></p>
+    <?php if (!empty($debug)): ?>
+      <div><strong>Record set (din DB):</strong></div>
+      <pre><?php echo htmlspecialchars(json_encode($debug['set_record'], JSON_PRETTY_PRINT)); ?></pre>
+      <div><strong>set_parts count:</strong> <?php echo (int)$debug['set_parts_count']; ?></div>
+      <div><strong>set_parts sample (max 20):</strong></div>
+      <table class="data-table">
+        <thead><tr><th>ID</th><th>Part</th><th>Code</th><th>Color</th><th>Qty</th></tr></thead>
+        <tbody>
+          <?php foreach (($debug['set_parts_sample'] ?? []) as $r): ?>
+            <tr>
+              <td><?php echo (int)$r['id']; ?></td>
+              <td><?php echo htmlspecialchars($r['name'] ?? ''); ?></td>
+              <td><?php echo htmlspecialchars($r['part_code'] ?? ''); ?></td>
+              <td><?php echo htmlspecialchars($r['color_name'] ?? ''); ?></td>
+              <td><?php echo (int)$r['quantity']; ?></td>
+            </tr>
+          <?php endforeach; ?>
+        </tbody>
+      </table>
+    <?php else: ?>
+      <div>Activeaza debug cu parametru: <a href="/sets/view?id=<?php echo (int)$set['id']; ?>&debug=1">debug=1</a></div>
+    <?php endif; ?>
+</div>
+
+<div id="changelog-panel" class="card" style="display:none; margin-top:20px;">
+  <h3>Changelog</h3>
+  <table class="data-table" id="changelog-table"><thead><tr><th>Data</th><th>Changes</th><th>User</th></tr></thead><tbody></tbody></table>
+</div>
+
+<script>
+function loadSetChangelog(id){
+  document.getElementById('changelog-panel').style.display='block';
+  fetch('/parts/history?id='+id+'&type=set').then(r=>r.json()).then(function(rows){
+    var tb=document.querySelector('#changelog-table tbody'); tb.innerHTML='';
+    rows.forEach(function(row){
+      tb.innerHTML += '<tr><td>'+row.created_at+'</td><td>'+row.changes+'</td><td>'+(row.username||'')+'</td></tr>';
+    });
+  });
+}
+</script>
 <h3>Piese in set</h3>
 <table class="data-table">
   <thead><tr><th>Imagine</th><th>Nume</th><th>Cod</th><th>Culoare</th><th>Necesar</th><th>Avem</th><th>Status</th></tr></thead>
