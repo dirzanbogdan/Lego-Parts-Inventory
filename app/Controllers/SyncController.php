@@ -65,7 +65,11 @@ class SyncController extends Controller {
         if (!empty($consists) && $partId) {
             $this->upsertPartComposition($partId, $consists);
         }
-        header('Location: /parts?synced=1&code=' . urlencode($partCode));
+        if ($partId) {
+            header('Location: /parts/view?id=' . $partId . '&synced=1');
+        } else {
+            header('Location: /parts?synced=1&code=' . urlencode($partCode));
+        }
     }
     public function syncBrickLinkSet(): void {
         $this->requirePost();
@@ -108,7 +112,11 @@ class SyncController extends Controller {
                 }
             }
         }
-        header('Location: /sets?synced=1&code=' . urlencode($setCode));
+        if (!empty($setId)) {
+            header('Location: /sets/view?id=' . $setId . '&synced=1');
+        } else {
+            header('Location: /sets?synced=1&code=' . urlencode($setCode));
+        }
     }
     private function fetch(string $url): string {
         $opts = ['http' => ['method' => 'GET', 'header' => "User-Agent: LegoInventory\r\n"]];
