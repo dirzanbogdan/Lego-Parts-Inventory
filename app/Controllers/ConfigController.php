@@ -208,6 +208,10 @@ class ConfigController extends Controller {
                  }
              }
         }
+        if (!$instructionsUrl) {
+            // Fallback to canonical instructions endpoint
+            $instructionsUrl = 'https://www.bricklink.com/catalogDownloadInstructions.asp?itemType=S&itemNo=' . urlencode($code);
+        }
         $log[] = 'instructions=' . ($instructionsUrl ? '1' : '0');
 
         $pdo = Config::db();
@@ -248,18 +252,36 @@ class ConfigController extends Controller {
         $pdo = Config::db();
         $count = 0;
         if ($type === 'S') {
-            preg_match_all('/catalogitem.page\?P=([^"&]+).*?color=([^"&]+).*?Qty:\s*(\d+)/is', $invHtml, $matches, PREG_SET_ORDER);
-            foreach ($matches as $m) {
-                $pcode = trim($m[1]);
-                $colorCode = trim($m[2]);
-                $qty = (int)trim($m[3]);
-                if ($pcode === '' || $qty <= 0) continue;
-                $childId = $this->ensurePart($pcode);
-                $cId = $this->ensureColorByCode($colorCode);
-                if ($childId) {
-                    $stp = $pdo->prepare('INSERT INTO set_parts (set_id, part_id, color_id, quantity) VALUES (?,?,?,?) ON DUPLICATE KEY UPDATE quantity=VALUES(quantity)');
-                    $stp->execute([$parentId, $childId, $cId ?: null, $qty]);
-                    $count++;
+            // Prefer parsing by color name in the inventory table
+            $matches = [];
+            if (preg_match_all('/catalogitem\\.page\\?P=([^"\\s]+)[\\s\\S]*?Color:\\s*<[^>]*>([^<]*)[\\s\\S]*?Qty[^\\d]*(\\d+)/i', $invHtml, $matches, PREG_SET_ORDER)) {
+                foreach ($matches as $m) {
+                    $pcode = trim(html_entity_decode($m[1]));
+                    $colorName = trim(html_entity_decode($m[2]));
+                    $qty = (int)trim($m[3]);
+                    if ($pcode === '' || $qty <= 0) continue;
+                    $childId = $this->ensurePart($pcode);
+                    $cId = $this->ensureColorByName($colorName);
+                    if ($childId) {
+                        $stp = $pdo->prepare('INSERT INTO set_parts (set_id, part_id, color_id, quantity) VALUES (?,?,?,?) ON DUPLICATE KEY UPDATE quantity=VALUES(quantity)');
+                        $stp->execute([$parentId, $childId, $cId ?: null, $qty]);
+                        $count++;
+                    }
+                }
+            } else {
+                // Fallback without color
+                if (preg_match_all('/catalogitem\\.page\\?P=([^"\\s]+)[\\s\\S]*?Qty[^\\d]*(\\d+)/i', $invHtml, $m2, PREG_SET_ORDER)) {
+                    foreach ($m2 as $row) {
+                        $pcode = trim(html_entity_decode($row[1]));
+                        $qty = (int)$row[2];
+                        if ($pcode === '' || $qty <= 0) continue;
+                        $childId = $this->ensurePart($pcode);
+                        if ($childId) {
+                            $stp = $pdo->prepare('INSERT INTO set_parts (set_id, part_id, color_id, quantity) VALUES (?,?,?,?) ON DUPLICATE KEY UPDATE quantity=VALUES(quantity)');
+                            $stp->execute([$parentId, $childId, null, $qty]);
+                            $count++;
+                        }
+                    }
                 }
             }
         } else {
@@ -403,6 +425,14 @@ class ConfigController extends Controller {
         $pdo = Config::db();
         $st = $pdo->prepare('SELECT id FROM colors WHERE color_code=?');
         $st->execute([$code]);
+        $id = (int)($st->fetchColumn() ?: 0);
+        if ($id) return $id;
+        return null;
+    }
+    private function ensureColorByName(string $name): ?int {
+        $pdo = Config::db();
+        $st = $pdo->prepare('SELECT id FROM colors WHERE color_name=?');
+        $st->execute([$name]);
         $id = (int)($st->fetchColumn() ?: 0);
         if ($id) return $id;
         return null;
