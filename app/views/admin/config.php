@@ -16,6 +16,7 @@
   <button type="submit">Importa piese</button>
   <div id="parts-progress" class="card" style="display:none"></div>
   <div id="parts-summary" class="card" style="display:none"></div>
+  <div id="parts-log" class="card" style="display:block; max-height:200px; overflow:auto"></div>
 </form>
 <h3>Importa seturi</h3>
 <form method="post" action="/admin/config/scrape_sets" id="form-sets">
@@ -24,6 +25,7 @@
   <button type="submit">Importa seturi</button>
   <div id="sets-progress" class="card" style="display:none"></div>
   <div id="sets-summary" class="card" style="display:none"></div>
+  <div id="sets-log" class="card" style="display:block; max-height:200px; overflow:auto"></div>
 </form>
 <script>
 document.addEventListener('DOMContentLoaded',function(){
@@ -32,6 +34,8 @@ document.addEventListener('DOMContentLoaded',function(){
     if(!form) return;
     var box=document.getElementById(boxId);
     var sum=document.getElementById(boxId.replace('progress','summary'));
+    var liveLogId=boxId.replace('progress','log');
+    var liveLog=document.getElementById(liveLogId);
     form.addEventListener('submit',function(e){
       e.preventDefault();
       var codes=(form.querySelector('textarea[name=codes]').value||'').split(/\r?\n/).map(function(s){return s.trim()}).filter(Boolean);
@@ -82,6 +86,18 @@ document.addEventListener('DOMContentLoaded',function(){
         }).then(function(data){
           if(data && data.status==='ok'){
             results.push(data);
+            if(liveLog){
+              var line=code+' • ';
+              if(data.type==='part'){
+                line+='related='+data.related_count+' • comp='+data.inv_count;
+              }else{
+                line+='instr='+(data.instructions_url?'1':'0')+' • parts='+data.inv_count;
+              }
+              if(Array.isArray(data.log)){
+                line+=' • '+data.log.join(' | ');
+              }
+              var p=document.createElement('div'); p.textContent=line; liveLog.appendChild(p);
+            }
           }else{
             errors.push(code);
           }

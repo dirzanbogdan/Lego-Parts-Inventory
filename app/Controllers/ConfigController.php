@@ -49,6 +49,9 @@ class ConfigController extends Controller {
 
         $delay();
         $html = $this->fetch($url);
+        $log = [];
+        $log[] = 'fetch_parts_url=' . $url;
+        $log[] = 'fetch_parts_len=' . strlen($html);
 
         // If no color param in input, try to find it in the fetched HTML (if redirected or default)
         if (!$colorParam) {
@@ -60,6 +63,7 @@ class ConfigController extends Controller {
         $name = $this->extract($html, '/<title>(.*?)<\/title>/i') ?: $code;
         $img = $this->extract($html, '/<img[^>]+src="([^"]+)"[^>]*class="img-item"/i');
         $localImg = $this->saveImage($img, 'parts', $code);
+        $log[] = 'image_local=' . ($localImg ? '1' : '0');
 
         $version = null;
         if (preg_match('/^[^\\s]+?([A-Za-z].*)$/', $code, $vm)) {
@@ -85,6 +89,7 @@ class ConfigController extends Controller {
         if (preg_match('/\(\s*(\d+[A-Za-z0-9]*\s*\/\s*\d+[A-Za-z0-9]*\s*)\)/', $name, $cmps)) {
             $composition = trim($cmps[1]);
         }
+        $log[] = 'composition_tag=' . ($composition ? '1' : '0');
 
         // Extract Related Items
         // Look for "This Item fits with" block
@@ -103,6 +108,9 @@ class ConfigController extends Controller {
         $altMolds = $this->extractSectionItems($html, 'Alternate Molds');
         foreach ($counterparts as $cp) $relatedItems[] = $cp;
         foreach ($altMolds as $am) $relatedItems[] = $am;
+        $log[] = 'related_fits=' . (isset($relLinks[1]) ? count($relLinks[1]) : 0);
+        $log[] = 'related_counterparts=' . count($counterparts);
+        $log[] = 'related_alt_molds=' . count($altMolds);
         $relatedJson = !empty($relatedItems) ? json_encode($relatedItems) : null;
 
         $pdo = Config::db();
@@ -118,12 +126,14 @@ class ConfigController extends Controller {
             $s3->execute([$name, $code, ($localImg ?: $img), $url, $version, $weight, $stud, $pkg, $composition, $relatedJson]);
             $id = (int)$pdo->lastInsertId();
         }
+        $log[] = 'upsert_part_id=' . $id;
 
         // Scrape inventory if (Inv) or composition detected
         $invCount = 0;
         if (stripos($raw, '(Inv)') !== false || $composition) {
              $invCount = $this->scrapeInventory('P', $code, $id);
         }
+        $log[] = 'inv_parts_count=' . $invCount;
 
         if ($colorParam) {
             $cid = $this->ensureColorByCode($colorParam);
@@ -132,6 +142,7 @@ class ConfigController extends Controller {
                     ->execute([$id, $cid]);
             }
         }
+        $log[] = 'color_param=' . ($colorParam ?: '');
 
         header('Content-Type: application/json');
         echo json_encode([
@@ -142,7 +153,8 @@ class ConfigController extends Controller {
             'name' => $name,
             'related_count' => count($relatedItems),
             'inv_count' => $invCount,
-            'color_code' => $colorParam
+            'color_code' => $colorParam,
+            'log' => $log
         ]);
     }
 
@@ -170,10 +182,14 @@ class ConfigController extends Controller {
         $url = 'https://www.bricklink.com/v2/catalog/catalogitem.page?S=' . urlencode($code);
         $delay();
         $html = $this->fetch($url);
+        $log = [];
+        $log[] = 'fetch_set_url=' . $url;
+        $log[] = 'fetch_set_len=' . strlen($html);
 
         $name = $this->extract($html, '/<title>(.*?)<\/title>/i') ?: $code;
         $img = $this->extract($html, '/<img[^>]+src="([^"]+)"[^>]*class="img-item"/i');
         $localImg = $this->saveImage($img, 'sets', $code);
+        $log[] = 'image_local=' . ($localImg ? '1' : '0');
 
         // Instructions URL
         $instructionsUrl = null;
@@ -187,6 +203,7 @@ class ConfigController extends Controller {
                  }
              }
         }
+        $log[] = 'instructions=' . ($instructionsUrl ? '1' : '0');
 
         $pdo = Config::db();
         $st = $pdo->prepare('SELECT id FROM sets WHERE set_code=?');
@@ -201,8 +218,10 @@ class ConfigController extends Controller {
             $s3->execute([$name, $code, 'official', null, $localImg ?: $img, $instructionsUrl]);
             $sid = (int)$pdo->lastInsertId();
         }
+        $log[] = 'upsert_set_id=' . $sid;
 
         $invCount = $this->scrapeInventory('S', $code, $sid);
+        $log[] = 'inv_set_count=' . $invCount;
         header('Content-Type: application/json');
         echo json_encode([
             'status' => 'ok',
@@ -211,7 +230,8 @@ class ConfigController extends Controller {
             'id' => $sid,
             'name' => $name,
             'instructions_url' => $instructionsUrl,
-            'inv_count' => $invCount
+            'inv_count' => $invCount,
+            'log' => $log
         ]);
     }
 
@@ -239,6 +259,9 @@ class ConfigController extends Controller {
             }
         } else {
             preg_match_all('/catalogitem.page\?P=([^"&]+)[\s\S]*?Qty:\s*(\d+)/is', $invHtml, $matches, PREG_SET_ORDER);
+            if (empty($matches)) {
+                preg_match_all('/catalogitem.page\?P=([^"&]+)[\s\S]*?Quantity[^0-9]*(\d+)/is', $invHtml, $matches, PREG_SET_ORDER);
+            }
             foreach ($matches as $m) {
                 $pcode = trim($m[1]);
                 $qty = (int)trim($m[2]);
