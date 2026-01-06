@@ -135,10 +135,25 @@ class SyncController extends Controller {
             }
         }
         $syncLog[] = 'instructions_valid=' . ($instructionsUrl ? '1' : '0');
-        $parts = $this->getSetInventory($setCode);
-        $syncLog[] = 'inv_url=' . ('https://www.bricklink.com/catalogItemInv.asp?S=' . urlencode($setCode));
+        
+        // Fetch Inventory
+        $invUrl = 'https://www.bricklink.com/catalogItemInv.asp?S=' . urlencode($setCode);
+        $syncLog[] = 'inv_url=' . $invUrl;
+        
+        // Pass syncLog by reference to capture debug info from getSetInventory if needed, 
+        // but getSetInventory is private. Let's just fetch here or rely on getSetInventory returning logs?
+        // Simpler: let getSetInventory return items, and we log count.
+        // If count is 0, we might want to log the HTML snippet.
+        
+        // We need to fetch inside getSetInventory, but we want the HTML for debug if it fails.
+        // Let's refactor getSetInventory to take the HTML or return metadata.
+        // For now, I will modify getSetInventory to allow logging.
+        
+        $parts = $this->getSetInventory($setCode, $syncLog);
+        
         $syncLog[] = 'inv_http_code=' . (int)($this->lastFetchMeta['http_code'] ?? 0);
         $syncLog[] = 'inv_fetch_len=' . (int)($this->lastFetchMeta['length'] ?? 0);
+        
         $pdo = Config::db();
         $stSet = $pdo->prepare('SELECT * FROM sets WHERE set_code=? LIMIT 1');
         $stSet->execute([$setCode]);
@@ -298,16 +313,19 @@ class SyncController extends Controller {
             }
         }
     }
-    private function getSetInventory(string $setCode): array {
+    private function getSetInventory(string $setCode, array &$log = []): array {
         $invUrl = 'https://www.bricklink.com/catalogItemInv.asp?S=' . urlencode($setCode);
         $html = $this->fetch($invUrl);
-        if (!$html) return [];
+        if (!$html) {
+            $log[] = 'inv_html_empty';
+            return [];
+        }
         
         $items = [];
         // Parse HTML table rows
         // Structure typically: Image | Qty | Item No | Description
-        // But can vary. We look for the cell with the Part Link.
         
+        $log[] = 'parsing_method=table_tr_td';
         if (preg_match_all('/<TR[^>]*>(.*?)<\/TR>/is', $html, $rows)) {
             foreach ($rows[1] as $row) {
                 // Must contain catalogitem.page?P=
@@ -335,23 +353,9 @@ class SyncController extends Controller {
                         $qtyRaw = strip_tags($cols[$pIdx - 1]);
                         $qty = (int)trim($qtyRaw);
                         
-                        // If Qty is 0 or invalid, maybe check other columns?
-                        // But standard view is Qty before Item No.
-                        
                         // Color is usually in Description (pIdx + 1)
                         if (isset($cols[$pIdx + 1])) {
                             $desc = trim(strip_tags($cols[$pIdx + 1]));
-                            // Heuristic: The color is often the first part of the description
-                            // But we can't be sure.
-                            // Let's try to match against known colors later or just store the first word(s).
-                            // For now, let's just pass the description or try to extract color if possible.
-                            // Actually, Sync logic tries Color::findByName($p['color']).
-                            // We need to extract the color name.
-                            // E.g. "Black Technic..." -> "Black"
-                            // "Dark Bluish Gray Technic..." -> "Dark Bluish Gray"
-                            // We will pass the whole description string as 'color' and let the caller handle it?
-                            // No, the caller expects a color name to look up.
-                            // We'll try to guess it.
                             $colorName = $desc; 
                         }
                     }
@@ -359,7 +363,7 @@ class SyncController extends Controller {
                     if ($partCode && $qty > 0) {
                         $items[] = [
                             'code' => html_entity_decode($partCode),
-                            'color' => $colorName, // Caller will try to match this against DB colors
+                            'color' => $colorName, 
                             'quantity' => $qty
                         ];
                     }
@@ -367,8 +371,9 @@ class SyncController extends Controller {
             }
         }
         
-        // Fallback to regex if table parse fails (though table parse is better)
+        // Fallback to regex if table parse fails
         if (empty($items)) {
+             $log[] = 'parsing_method=fallback_regex';
              if (preg_match_all('/catalogitem\\.page\\?P=([^"\\s]+)[\\s\\S]*?Qty[^\\d]*(\\d+)/i', $html, $m2, PREG_SET_ORDER)) {
                 foreach ($m2 as $row) {
                     $items[] = ['code' => html_entity_decode($row[1]), 'quantity' => (int)$row[2], 'color' => null];
@@ -376,6 +381,20 @@ class SyncController extends Controller {
             }
         }
         
+        // Second fallback: Look for "x Qty" pattern (e.g. "4x") often found in simple lists
+        if (empty($items)) {
+            $log[] = 'parsing_method=fallback_simple_qty';
+            if (preg_match_all('/(\d+)\s*x\s*<a[^>]+catalogitem\.page\?P=([^"&]+)/i', $html, $m3, PREG_SET_ORDER)) {
+                foreach ($m3 as $row) {
+                    $items[] = ['code' => html_entity_decode($row[2]), 'quantity' => (int)$row[1], 'color' => null];
+                }
+            }
+        }
+        
+        if (empty($items)) {
+            $log[] = 'parse_failed_preview=' . substr(strip_tags($html), 0, 300);
+        }
+
         return $items;
     }
     private function extractInstructionsUrl(string $html): ?string {

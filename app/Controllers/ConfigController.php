@@ -358,15 +358,53 @@ class ConfigController extends Controller {
         }
 
         $html = $this->fetch('https://www.bricklink.com/catalogColors.asp?itemType=P');
-        preg_match_all('/color=(\d+)[^>]*>\s*([^<]+)/i', $html, $ms, PREG_SET_ORDER);
         
+        // Try multiple patterns
+        $colors = [];
+        
+        // Pattern 1: Table row with link containing color=ID and cell content
+        // Look for <A HREF="...color=X...">Name</A>
+        if (preg_match_all('/href="[^"]*color=(\d+)[^"]*"[^>]*>(.*?)<\/a>/i', $html, $m1, PREG_SET_ORDER)) {
+            foreach ($m1 as $match) {
+                $id = trim($match[1]);
+                $name = trim(strip_tags($match[2]));
+                if ($id && $name && !is_numeric($name)) {
+                    $colors[$id] = $name;
+                }
+            }
+        }
+        
+        // Pattern 2: Old pattern fallback
+        if (empty($colors)) {
+            preg_match_all('/color=(\d+)[^>]*>\s*([^<]+)/i', $html, $m2, PREG_SET_ORDER);
+            foreach ($m2 as $match) {
+                $id = trim($match[1]);
+                $name = trim(strip_tags($match[2]));
+                if ($id && $name && !is_numeric($name)) {
+                    $colors[$id] = $name;
+                }
+            }
+        }
+
         $pdo = Config::db();
-        foreach ($ms as $m) {
-            $code = trim($m[1]);
-            $name = trim($m[2]);
+        $count = 0;
+        foreach ($colors as $code => $name) {
+            // Clean up name (remove &nbsp;, extra spaces)
+            $name = trim(html_entity_decode($name));
+            if ($name === '') continue;
+            
             $st = $pdo->prepare('INSERT INTO colors (color_name, color_code) VALUES (?,?) ON DUPLICATE KEY UPDATE color_code=?');
             $st->execute([$name, $code, $code]);
+            $count++;
         }
+        
+        // Log outcome
+        try {
+            $uid = $_SESSION['user']['id'] ?? null;
+            $stLog = $pdo->prepare("INSERT INTO entity_history (entity_type, entity_id, user_id, changes) VALUES ('system', 0, ?, ?)");
+            $stLog->execute([$uid, 'Scrape Colors: Found ' . $count . ' colors. HTML len: ' . strlen($html)]);
+        } catch (\Throwable $e) {}
+
         header('Location: /admin/config');
     }
 

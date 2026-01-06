@@ -47,39 +47,37 @@
 <div id="debug-panel" class="card" style="display:<?php echo !empty($_GET['debug'])?'block':'none'; ?>; margin-top:20px;">
     <h3>Debug set</h3>
     <p>Parametri: set_code=<?php echo htmlspecialchars($set['set_code']); ?></p>
+    <p>Link-uri BrickLink (pentru verificare):</p>
+    <ul>
+        <li>Set: <a href="https://www.bricklink.com/v2/catalog/catalogitem.page?S=<?php echo urlencode($set['set_code']); ?>" target="_blank">Page</a></li>
+        <li>Inventory: <a href="https://www.bricklink.com/catalogItemInv.asp?S=<?php echo urlencode($set['set_code']); ?>" target="_blank">Inventory</a></li>
+    </ul>
+
     <?php if (!empty($debug)): ?>
       <div><strong>Record set (din DB):</strong></div>
-      <pre><?php echo htmlspecialchars(json_encode($debug['set_record'], JSON_PRETTY_PRINT)); ?></pre>
-      <div><strong>set_parts count:</strong> <?php echo (int)$debug['set_parts_count']; ?></div>
-      <div><strong>set_parts sample (max 20):</strong></div>
+      <pre style="background:#f4f4f4; padding:5px;"><?php echo htmlspecialchars(json_encode($debug['set_raw'], JSON_PRETTY_PRINT)); ?></pre>
+      <div><strong>set_parts count:</strong> <?php echo (int)$debug['parts_count']; ?></div>
+      
+      <div><strong>Istoric Sincronizare (entity_history):</strong></div>
       <table class="data-table">
-        <thead><tr><th>ID</th><th>Part</th><th>Code</th><th>Color</th><th>Qty</th></tr></thead>
+        <thead><tr><th>Data</th><th>User</th><th>Detalii (JSON Log)</th></tr></thead>
         <tbody>
-          <?php foreach (($debug['set_parts_sample'] ?? []) as $r): ?>
-            <tr>
-              <td><?php echo (int)$r['id']; ?></td>
-              <td><?php echo htmlspecialchars($r['name'] ?? ''); ?></td>
-              <td><?php echo htmlspecialchars($r['part_code'] ?? ''); ?></td>
-              <td><?php echo htmlspecialchars($r['color_name'] ?? ''); ?></td>
-              <td><?php echo (int)$r['quantity']; ?></td>
-            </tr>
-          <?php endforeach; ?>
-        </tbody>
-      </table>
-      <div><strong>Ultimele loguri sync (entity_history):</strong></div>
-      <table class="data-table">
-        <thead><tr><th>Data</th><th>Changes</th></tr></thead>
-        <tbody>
-          <?php foreach (($debug['history'] ?? []) as $h): ?>
+          <?php foreach (($history ?? []) as $h): ?>
             <tr>
               <td><?php echo htmlspecialchars($h['created_at']); ?></td>
-              <td><?php echo htmlspecialchars($h['changes']); ?></td>
+              <td><?php echo htmlspecialchars($h['user_id'] ?? '-'); ?></td>
+              <td>
+                  <pre style="max-height:200px; overflow:auto; font-size:11px;"><?php 
+                    $ch = json_decode($h['changes'], true);
+                    echo htmlspecialchars(json_encode($ch ?: $h['changes'], JSON_PRETTY_PRINT)); 
+                  ?></pre>
+              </td>
             </tr>
           <?php endforeach; ?>
         </tbody>
       </table>
     <?php else: ?>
-      <div>Activeaza debug cu parametru: <a href="/sets/view?id=<?php echo (int)$set['id']; ?>&debug=1">debug=1</a></div>
+      <div>Nu exista date de debug.</div>
     <?php endif; ?>
 </div>
 
