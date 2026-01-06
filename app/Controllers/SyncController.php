@@ -136,6 +136,9 @@ class SyncController extends Controller {
         }
         $syncLog[] = 'instructions_valid=' . ($instructionsUrl ? '1' : '0');
         $parts = $this->getSetInventory($setCode);
+        $syncLog[] = 'inv_url=' . ('https://www.bricklink.com/catalogItemInv.asp?S=' . urlencode($setCode));
+        $syncLog[] = 'inv_http_code=' . (int)($this->lastFetchMeta['http_code'] ?? 0);
+        $syncLog[] = 'inv_fetch_len=' . (int)($this->lastFetchMeta['length'] ?? 0);
         $pdo = Config::db();
         $stSet = $pdo->prepare('SELECT * FROM sets WHERE set_code=? LIMIT 1');
         $stSet->execute([$setCode]);
@@ -209,7 +212,7 @@ class SyncController extends Controller {
             $eff = (string)curl_getinfo($ch, CURLINFO_EFFECTIVE_URL);
         }
         curl_close($ch);
-        $this->lastFetchMeta = ['http_code' => $code, 'error' => $err, 'effective_url' => $eff];
+        $this->lastFetchMeta = ['http_code' => $code, 'error' => $err, 'effective_url' => $eff, 'length' => is_string($html) ? strlen($html) : 0];
         return is_string($html) ? $html : '';
     }
     private function saveImage(?string $url, string $type, string $code): ?string {

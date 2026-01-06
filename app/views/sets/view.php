@@ -66,6 +66,18 @@
           <?php endforeach; ?>
         </tbody>
       </table>
+      <div><strong>Ultimele loguri sync (entity_history):</strong></div>
+      <table class="data-table">
+        <thead><tr><th>Data</th><th>Changes</th></tr></thead>
+        <tbody>
+          <?php foreach (($debug['history'] ?? []) as $h): ?>
+            <tr>
+              <td><?php echo htmlspecialchars($h['created_at']); ?></td>
+              <td><?php echo htmlspecialchars($h['changes']); ?></td>
+            </tr>
+          <?php endforeach; ?>
+        </tbody>
+      </table>
     <?php else: ?>
       <div>Activeaza debug cu parametru: <a href="/sets/view?id=<?php echo (int)$set['id']; ?>&debug=1">debug=1</a></div>
     <?php endif; ?>
