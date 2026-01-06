@@ -22,6 +22,11 @@ class Inventory {
         $pdo->commit();
         return true;
     }
+    public static function updateDetails(int $partId, int $colorId, string $condition, float $price): bool {
+        $pdo = Config::db();
+        $st = $pdo->prepare('UPDATE part_colors SET condition_state=?, purchase_price=? WHERE part_id=? AND color_id=?');
+        return $st->execute([$condition, $price, $partId, $colorId]);
+    }
     public static function historyByPart(int $partId, int $limit = 20): array {
         $pdo = Config::db();
         $st = $pdo->prepare('SELECT ih.*, c.color_name, u.username FROM inventory_history ih LEFT JOIN colors c ON c.id=ih.color_id LEFT JOIN users u ON u.id=ih.user_id WHERE ih.part_id=? ORDER BY ih.created_at DESC LIMIT ?');

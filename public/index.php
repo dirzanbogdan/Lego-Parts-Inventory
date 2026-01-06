@@ -25,6 +25,7 @@ $router->add('POST', '/parts/update', [PartsController::class, 'update']);
 $router->add('POST', '/parts/delete', [PartsController::class, 'delete']);
 $router->add('GET', '/inventory', [InventoryController::class, 'index']);
 $router->add('POST', '/inventory/update', [InventoryController::class, 'update']);
+$router->add('POST', '/inventory/updateDetails', [InventoryController::class, 'updateDetails']);
 $router->add('GET', '/inventory/export', [InventoryController::class, 'export']);
 $router->add('POST', '/inventory/import', [InventoryController::class, 'import']);
 $router->add('GET', '/search', [PartsController::class, 'search']);
@@ -49,4 +50,5 @@ $router->add('POST', '/admin/config/seed_sets', [ConfigController::class, 'seedS
 $router->add('POST', '/admin/config/scrape_parts_one', [ConfigController::class, 'scrapePartsOne']);
 $router->add('POST', '/admin/config/scrape_sets_one', [ConfigController::class, 'scrapeSetsOne']);
 $router->add('POST', '/sync/bricklink', [SyncController::class, 'syncBrickLink']);
+$router->add('POST', '/sync/bricklink_set', [SyncController::class, 'syncBrickLinkSet']);
 $router->dispatch();

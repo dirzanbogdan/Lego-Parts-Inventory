@@ -28,7 +28,7 @@ class Part {
     }
     public static function create(array $data): bool {
         $pdo = Config::db();
-        $st = $pdo->prepare('INSERT INTO parts (name, part_code, version, category_id, image_url, bricklink_url, years_released, weight, stud_dimensions, package_dimensions, no_of_parts) VALUES (?,?,?,?,?,?,?,?,?,?,?)');
+        $st = $pdo->prepare('INSERT INTO parts (name, part_code, version, category_id, image_url, bricklink_url, years_released, weight, stud_dimensions, package_dimensions, no_of_parts, related_items) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)');
         return $st->execute([
             $data['name'],
             $data['part_code'],
@@ -41,11 +41,12 @@ class Part {
             $data['stud_dimensions'] ?? null,
             $data['package_dimensions'] ?? null,
             $data['no_of_parts'] ?? null,
+            $data['related_items'] ?? null,
         ]);
     }
     public static function update(int $id, array $data): bool {
         $pdo = Config::db();
-        $st = $pdo->prepare('UPDATE parts SET name=?, part_code=?, version=?, category_id=?, image_url=?, bricklink_url=?, years_released=?, weight=?, stud_dimensions=?, package_dimensions=?, no_of_parts=? WHERE id=?');
+        $st = $pdo->prepare('UPDATE parts SET name=?, part_code=?, version=?, category_id=?, image_url=?, bricklink_url=?, years_released=?, weight=?, stud_dimensions=?, package_dimensions=?, no_of_parts=?, related_items=? WHERE id=?');
         return $st->execute([
             $data['name'],
             $data['part_code'],
@@ -58,6 +59,7 @@ class Part {
             $data['stud_dimensions'] ?? null,
             $data['package_dimensions'] ?? null,
             $data['no_of_parts'] ?? null,
+            $data['related_items'] ?? null,
             $id,
         ]);
     }

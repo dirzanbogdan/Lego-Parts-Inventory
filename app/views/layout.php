@@ -10,25 +10,28 @@
 <body>
 <header>
   <div class="container">
-    <h1>Lego Parts Inventory</h1>
-    <nav>
-      <a href="/">Acasa</a>
-      <a href="/parts">Piese</a>
-      <a href="/inventory">Inventar</a>
-      <a href="/sets">Seturi</a>
-      <a href="/search">Cautare</a>
-      <?php if (!empty($_SESSION['user'])): ?>
-        <span class="user">Salut, <?php echo htmlspecialchars($_SESSION['user']['username']); ?></span>
-        <?php if (($_SESSION['user']['role'] ?? 'user') === 'admin'): ?>
-          <a href="/admin/update">Update</a>
-          <a href="/admin/config">Config</a>
+    <div class="nav-wrapper">
+      <nav class="main-nav">
+        <a href="/">Acasa</a>
+        <a href="/parts">Piese</a>
+        <a href="/inventory">Inventar</a>
+        <a href="/sets">Seturi</a>
+        <a href="/search">Cautare</a>
+      </nav>
+      <nav class="sec-nav">
+        <?php if (!empty($_SESSION['user'])): ?>
+          <?php if (($_SESSION['user']['role'] ?? 'user') === 'admin'): ?>
+            <a href="/admin/update">Update</a>
+            <a href="/admin/config">Config</a>
+          <?php endif; ?>
+          <span class="user"><?php echo htmlspecialchars($_SESSION['user']['username']); ?></span>
+          <a href="/logout">Logout</a>
+        <?php else: ?>
+          <a href="/login">Login</a>
+          <a href="/register">Register</a>
         <?php endif; ?>
-        <a href="/logout">Logout</a>
-      <?php else: ?>
-        <a href="/login">Login</a>
-        <a href="/register">Register</a>
-      <?php endif; ?>
-    </nav>
+      </nav>
+    </div>
   </div>
 </header>
 <main class="container">

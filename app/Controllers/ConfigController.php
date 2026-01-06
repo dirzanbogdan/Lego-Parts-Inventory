@@ -1,14 +1,19 @@
 <?php
 declare(strict_types=1);
+
 namespace App\Controllers;
+
 use App\Core\Controller;
 use App\Core\Security;
 use App\Config\Config;
+
 class ConfigController extends Controller {
+
     public function page(): void {
         Security::requireRole('admin');
         $this->render('admin/config', []);
     }
+
     public function scrapePartsOne(): void {
         $this->requirePost();
         Security::requireRole('admin');
@@ -17,46 +22,103 @@ class ConfigController extends Controller {
             echo 'bad request';
             return;
         }
-        $delay = function() { $d = random_int(3,10); sleep($d); };
+
+        $delay = function() {
+            $d = random_int(3, 10);
+            sleep($d);
+        };
+
         $raw = trim($_POST['code'] ?? '');
-        if ($raw === '') {http_response_code(422);echo 'invalid';return;}
-        $code = preg_replace('/\\s*\\(Inv\\)\\s*$/i', '', $raw);
+        if ($raw === '') {
+            http_response_code(422);
+            echo 'invalid';
+            return;
+        }
+
+        // Normalize code: remove (Inv)
+        $code = preg_replace('/\s*\(Inv\)\s*$/i', '', $raw);
+
+        // Check for color param in input (e.g. Code C=11)
         $colorParam = null;
-        if (preg_match('/\\bC=(\\d+)/i', $raw, $cm)) $colorParam = $cm[1];
+        if (preg_match('/\bC=(\d+)/i', $raw, $cm)) {
+            $colorParam = $cm[1];
+        }
+
         $anchor = $colorParam ? ('#T=C&C=' . $colorParam) : '';
         $url = 'https://www.bricklink.com/v2/catalog/catalogitem.page?P=' . urlencode($code) . $anchor;
+
         $delay();
         $html = $this->fetch($url);
+
+        // If no color param in input, try to find it in the fetched HTML (if redirected or default)
         if (!$colorParam) {
-            if (preg_match('/#T=C&C=(\\d+)/i', $html, $am)) $colorParam = $am[1];
+            if (preg_match('/#T=C&C=(\d+)/i', $html, $am)) {
+                $colorParam = $am[1];
+            }
         }
+
         $name = $this->extract($html, '/<title>(.*?)<\/title>/i') ?: $code;
         $img = $this->extract($html, '/<img[^>]+src="([^"]+)"[^>]*class="img-item"/i');
         $localImg = $this->saveImage($img, 'parts', $code);
+
         $version = null;
-        if (preg_match('/^[^\\s]+?([A-Za-z].*)$/', $code, $vm)) $version = $vm[1];
+        if (preg_match('/^[^\\s]+?([A-Za-z].*)$/', $code, $vm)) {
+            $version = $vm[1];
+        }
+
         $weight = null;
-        if (preg_match('/Item\\s*Weight:\\s*([\\d\\.]+)/i', $html, $wm)) $weight = (float)$wm[1];
+        if (preg_match('/Item\s*Weight:\s*([\d\.]+)/i', $html, $wm)) {
+            $weight = (float)$wm[1];
+        }
+
         $stud = null;
-        if (preg_match('/Stud\\s*Dimensions:\\s*([^<\\n]+)/i', $html, $sm)) $stud = trim($sm[1]);
+        if (preg_match('/Stud\s*Dimensions:\s*([^<\n]+)/i', $html, $sm)) {
+            $stud = trim($sm[1]);
+        }
+
         $pkg = null;
-        if (preg_match('/Item\\s*Dim\\w*:\\s*([^<\\n]+)/i', $html, $pm)) $pkg = trim($pm[1]);
+        if (preg_match('/Item\s*Dim\w*:\s*([^<\n]+)/i', $html, $pm)) {
+            $pkg = trim($pm[1]);
+        }
+
         $composition = null;
-        if (preg_match('/\\((\\s*\\d+[A-Za-z0-9]*\\s*\\/\\s*\\d+[A-Za-z0-9]*\\s*)\\)/', $name, $cmps)) {
+        if (preg_match('/\(\s*(\d+[A-Za-z0-9]*\s*\/\s*\d+[A-Za-z0-9]*\s*)\)/', $name, $cmps)) {
             $composition = trim($cmps[1]);
         }
+
+        // Extract Related Items
+        // Look for "This Item fits with" block
+        $relatedItems = [];
+        if (preg_match('/This Item fits with and is usually used with the following Item\(s\):(.*?)(?:<\/table>|<div)/is', $html, $relMatch)) {
+             preg_match_all('/catalogitem\.page\?P=([^"&]+).*?>([^<]+)</i', $relMatch[1], $relLinks);
+             if (isset($relLinks[1])) {
+                 foreach ($relLinks[1] as $idx => $rCode) {
+                     $rDesc = trim($relLinks[2][$idx] ?? '');
+                     $relatedItems[] = ['code' => $rCode, 'name' => $rDesc];
+                 }
+             }
+        }
+        $relatedJson = !empty($relatedItems) ? json_encode($relatedItems) : null;
+
         $pdo = Config::db();
         $st = $pdo->prepare('SELECT id FROM parts WHERE part_code=?');
         $st->execute([$code]);
         $id = (int)($st->fetchColumn() ?: 0);
+
         if ($id) {
-            $s2 = $pdo->prepare('UPDATE parts SET name=?, image_url=?, bricklink_url=?, version=?, weight=?, stud_dimensions=?, package_dimensions=?, composition=? WHERE id=?');
-            $s2->execute([$name, ($localImg ?: $img), $url, $version, $weight, $stud, $pkg, $composition, $id]);
+            $s2 = $pdo->prepare('UPDATE parts SET name=?, image_url=?, bricklink_url=?, version=?, weight=?, stud_dimensions=?, package_dimensions=?, composition=?, related_items=? WHERE id=?');
+            $s2->execute([$name, ($localImg ?: $img), $url, $version, $weight, $stud, $pkg, $composition, $relatedJson, $id]);
         } else {
-            $s3 = $pdo->prepare('INSERT INTO parts (name, part_code, image_url, bricklink_url, version, weight, stud_dimensions, package_dimensions, composition) VALUES (?,?,?,?,?,?,?,?,?)');
-            $s3->execute([$name, $code, ($localImg ?: $img), $url, $version, $weight, $stud, $pkg, $composition]);
+            $s3 = $pdo->prepare('INSERT INTO parts (name, part_code, image_url, bricklink_url, version, weight, stud_dimensions, package_dimensions, composition, related_items) VALUES (?,?,?,?,?,?,?,?,?,?)');
+            $s3->execute([$name, $code, ($localImg ?: $img), $url, $version, $weight, $stud, $pkg, $composition, $relatedJson]);
             $id = (int)$pdo->lastInsertId();
         }
+
+        // Scrape inventory if (Inv) or composition detected
+        if (stripos($raw, '(Inv)') !== false || $composition) {
+             $this->scrapeInventory('P', $code, $id);
+        }
+
         if ($colorParam) {
             $cid = $this->ensureColorByCode($colorParam);
             if ($cid) {
@@ -64,8 +126,10 @@ class ConfigController extends Controller {
                     ->execute([$id, $cid]);
             }
         }
+
         echo 'ok';
     }
+
     public function scrapeSetsOne(): void {
         $this->requirePost();
         Security::requireRole('admin');
@@ -74,44 +138,90 @@ class ConfigController extends Controller {
             echo 'bad request';
             return;
         }
-        $delay = function() { $d = random_int(3,10); sleep($d); };
+
+        $delay = function() {
+            $d = random_int(3, 10);
+            sleep($d);
+        };
+
         $code = trim($_POST['code'] ?? '');
-        if ($code === '') {http_response_code(422);echo 'invalid';return;}
+        if ($code === '') {
+            http_response_code(422);
+            echo 'invalid';
+            return;
+        }
+
         $url = 'https://www.bricklink.com/v2/catalog/catalogitem.page?S=' . urlencode($code);
         $delay();
         $html = $this->fetch($url);
+
         $name = $this->extract($html, '/<title>(.*?)<\/title>/i') ?: $code;
         $img = $this->extract($html, '/<img[^>]+src="([^"]+)"[^>]*class="img-item"/i');
         $localImg = $this->saveImage($img, 'sets', $code);
+
+        // Instructions URL
+        $instructionsUrl = null;
+        if (preg_match('/<a[^>]+href="([^"]+)"[^>]*>View Instructions<\/a>/i', $html, $instM)) {
+            $instructionsUrl = 'https://www.bricklink.com' . $instM[1];
+        } else {
+             if (preg_match('/<a[^>]+href="([^"]+)"[^>]*>Instructions<\/a>/i', $html, $instM2)) {
+                 $instructionsUrl = $instM2[1];
+                 if (strpos($instructionsUrl, 'http') === false) {
+                     $instructionsUrl = 'https://www.bricklink.com' . $instructionsUrl;
+                 }
+             }
+        }
+
         $pdo = Config::db();
         $st = $pdo->prepare('SELECT id FROM sets WHERE set_code=?');
         $st->execute([$code]);
         $sid = (int)($st->fetchColumn() ?: 0);
+
         if ($sid) {
-            $s2 = $pdo->prepare('UPDATE sets SET set_name=?, image=? WHERE id=?');
-            $s2->execute([$name, $localImg ?: $img, $sid]);
+            $s2 = $pdo->prepare('UPDATE sets SET set_name=?, image=?, instructions_url=? WHERE id=?');
+            $s2->execute([$name, $localImg ?: $img, $instructionsUrl, $sid]);
         } else {
-            $s3 = $pdo->prepare('INSERT INTO sets (set_name, set_code, type, year, image) VALUES (?,?,?,?,?)');
-            $s3->execute([$name, $code, 'official', null, $localImg ?: $img]);
+            $s3 = $pdo->prepare('INSERT INTO sets (set_name, set_code, type, year, image, instructions_url) VALUES (?,?,?,?,?,?)');
+            $s3->execute([$name, $code, 'official', null, $localImg ?: $img, $instructionsUrl]);
             $sid = (int)$pdo->lastInsertId();
         }
-        $invUrl = 'https://www.bricklink.com/catalogItemInv.asp?S=' . urlencode($code);
+
+        $this->scrapeInventory('S', $code, $sid);
+        echo 'ok';
+    }
+
+    private function scrapeInventory(string $type, string $code, int $parentId): void {
+        $invUrl = 'https://www.bricklink.com/catalogItemInv.asp?' . $type . '=' . urlencode($code);
+        // Delay before inventory scrape to avoid rate limit
+        sleep(random_int(3, 5));
         $invHtml = $this->fetch($invUrl);
-        preg_match_all('/catalogitem.page\\?P=([^"&]+).*?color=([^"&]+).*?Qty:\\s*(\\d+)/is', $invHtml, $matches, PREG_SET_ORDER);
+        
+        preg_match_all('/catalogitem.page\?P=([^"&]+).*?color=([^"&]+).*?Qty:\s*(\d+)/is', $invHtml, $matches, PREG_SET_ORDER);
+        
+        $pdo = Config::db();
         foreach ($matches as $m) {
             $pcode = trim($m[1]);
             $colorCode = trim($m[2]);
             $qty = (int)trim($m[3]);
-            if ($pcode === '' || $qty<=0) continue;
-            $pId = $this->ensurePart($pcode);
+            
+            if ($pcode === '' || $qty <= 0) continue;
+            
+            $childId = $this->ensurePart($pcode);
             $cId = $this->ensureColorByCode($colorCode);
-            if ($pId) {
-                $stp = $pdo->prepare('INSERT INTO set_parts (set_id, part_id, color_id, quantity) VALUES (?,?,?,?) ON DUPLICATE KEY UPDATE quantity=VALUES(quantity)');
-                $stp->execute([$sid, $pId, $cId ?: null, $qty]);
+            
+            if ($childId) {
+                if ($type === 'S') {
+                    $stp = $pdo->prepare('INSERT INTO set_parts (set_id, part_id, color_id, quantity) VALUES (?,?,?,?) ON DUPLICATE KEY UPDATE quantity=VALUES(quantity)');
+                    $stp->execute([$parentId, $childId, $cId ?: null, $qty]);
+                } else {
+                    // For Parts, we store in part_parts. We ignore color for now as per schema.
+                    $pp = $pdo->prepare('INSERT INTO part_parts (parent_part_id, child_part_id, quantity) VALUES (?,?,?) ON DUPLICATE KEY UPDATE quantity=VALUES(quantity)');
+                    $pp->execute([$parentId, $childId, $qty]);
+                }
             }
         }
-        echo 'ok';
     }
+
     public function scrapeColors(): void {
         $this->requirePost();
         Security::requireRole('admin');
@@ -120,8 +230,10 @@ class ConfigController extends Controller {
             echo 'bad request';
             return;
         }
+
         $html = $this->fetch('https://www.bricklink.com/catalogColors.asp?itemType=P');
-        preg_match_all('/color=(\\d+)[^>]*>\\s*([^<]+)/i', $html, $ms, PREG_SET_ORDER);
+        preg_match_all('/color=(\d+)[^>]*>\s*([^<]+)/i', $html, $ms, PREG_SET_ORDER);
+        
         $pdo = Config::db();
         foreach ($ms as $m) {
             $code = trim($m[1]);
@@ -131,42 +243,56 @@ class ConfigController extends Controller {
         }
         header('Location: /admin/config?ok=colors');
     }
+
     private function fetch(string $url): string {
         $opts = ['http' => ['method' => 'GET', 'header' => "User-Agent: LegoInventory\r\n"]];
         return @file_get_contents($url, false, stream_context_create($opts)) ?: '';
     }
+
     private function extract(string $html, string $pattern): ?string {
         if (!$html) return null;
         if (preg_match($pattern, $html, $m)) return trim(html_entity_decode($m[1]));
         return null;
     }
+
     private function saveImage(?string $url, string $type, string $code): ?string {
         if (!$url) return null;
         $data = @file_get_contents($url);
         if (!$data) return null;
+
         $dir = __DIR__ . '/../../public/uploads/' . $type;
         if (!is_dir($dir)) @mkdir($dir, 0775, true);
+
         $ext = 'jpg';
-        $path = $dir . '/' . preg_replace('/[^a-zA-Z0-9_\\-]/','_', $code) . '.' . $ext;
+        $path = $dir . '/' . preg_replace('/[^a-zA-Z0-9_\-]/', '_', $code) . '.' . $ext;
+        
         @file_put_contents($path, $data);
-        if (file_exists($path)) return '/uploads/' . $type . '/' . basename($path);
+        if (file_exists($path)) {
+            return '/uploads/' . $type . '/' . basename($path);
+        }
         return null;
     }
+
     private function ensurePart(string $code): ?int {
         $pdo = Config::db();
         $st = $pdo->prepare('SELECT id FROM parts WHERE part_code=?');
         $st->execute([$code]);
         $id = (int)($st->fetchColumn() ?: 0);
         if ($id) return $id;
+
         $url = 'https://www.bricklink.com/v2/catalog/catalogitem.page?P=' . urlencode($code);
         $html = $this->fetch($url);
+        
         $name = $this->extract($html, '/<title>(.*?)<\/title>/i') ?: $code;
         $img = $this->extract($html, '/<img[^>]+src="([^"]+)"[^>]*class="img-item"/i');
         $localImg = $this->saveImage($img, 'parts', $code);
+
         $s = $pdo->prepare('INSERT INTO parts (name, part_code, image_url, bricklink_url) VALUES (?,?,?,?)');
         $s->execute([$name, $code, $localImg ?: $img, $url]);
+        
         return (int)$pdo->lastInsertId();
     }
+
     private function ensureColorByCode(string $code): ?int {
         $pdo = Config::db();
         $st = $pdo->prepare('SELECT id FROM colors WHERE color_code=?');
@@ -175,6 +301,7 @@ class ConfigController extends Controller {
         if ($id) return $id;
         return null;
     }
+
     public function seedColors(): void {
         $this->requirePost();
         Security::requireRole('admin');
@@ -185,6 +312,7 @@ class ConfigController extends Controller {
         }
         $this->scrapeColors();
     }
+
     public function seedParts(): void {
         $this->requirePost();
         Security::requireRole('admin');
@@ -195,6 +323,7 @@ class ConfigController extends Controller {
         }
         header('Location: /admin/config');
     }
+
     public function seedSets(): void {
         $this->requirePost();
         Security::requireRole('admin');

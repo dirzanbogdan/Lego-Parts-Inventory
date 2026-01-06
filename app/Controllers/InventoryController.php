@@ -9,11 +9,37 @@ use App\Models\Color;
 class InventoryController extends Controller {
     public function index(): void {
         $partId = (int)($_GET['part_id'] ?? 0);
-        $parts = Part::all(200, 0);
+        $q = trim($_GET['q'] ?? '');
+        
+        if ($q !== '') {
+             $pdo = \App\Config\Config::db();
+             $sql = "SELECT * FROM parts WHERE MATCH(name, part_code) AGAINST(? IN BOOLEAN MODE) LIMIT 50";
+             $st = $pdo->prepare($sql);
+             $st->execute([$q]);
+             $parts = $st->fetchAll();
+        } else {
+             $parts = Part::all(50, 0);
+        }
+
         $colors = Color::all();
         $inv = $partId ? Inventory::getByPart($partId) : [];
         $history = $partId ? Inventory::historyByPart($partId) : [];
-        $this->render('inventory/index', ['parts' => $parts, 'colors' => $colors, 'inventory' => $inv, 'history' => $history, 'partId' => $partId]);
+        $this->render('inventory/index', ['parts' => $parts, 'colors' => $colors, 'inventory' => $inv, 'history' => $history, 'partId' => $partId, 'query' => $q]);
+    }
+    public function updateDetails(): void {
+        $this->requirePost();
+        if (!Security::verifyCsrf($_POST['csrf'] ?? null)) {
+            http_response_code(400);
+            echo 'bad request';
+            return;
+        }
+        $partId = (int)($_POST['part_id'] ?? 0);
+        $colorId = (int)($_POST['color_id'] ?? 0);
+        $condition = $_POST['condition'] ?? 'New';
+        $price = (float)($_POST['price'] ?? 0);
+        
+        Inventory::updateDetails($partId, $colorId, $condition, $price);
+        header('Location: /inventory?part_id=' . $partId);
     }
     public function update(): void {
         $this->requirePost();

@@ -1,32 +1,58 @@
 <?php $title = 'Inventar'; ?>
 <h2>Inventar</h2>
+<div class="search-box">
+    <form method="get" action="/inventory" style="display:flex; gap:10px; margin-bottom:10px;">
+        <input type="text" name="q" placeholder="Cauta piesa (nume sau cod)..." value="<?php echo htmlspecialchars($query ?? ''); ?>" style="flex:1;">
+        <button type="submit">Cauta</button>
+    </form>
+</div>
+
 <form method="get" action="/inventory">
-  <label>Piesa</label>
-  <select name="part_id">
-    <option value="0">Selecteaza</option>
+  <input type="hidden" name="q" value="<?php echo htmlspecialchars($query ?? ''); ?>">
+  <label>Selecteaza Piesa:</label>
+  <select name="part_id" onchange="this.form.submit()">
+    <option value="0">-- Selecteaza --</option>
     <?php foreach ($parts as $p): ?>
-      <option value="<?php echo (int)$p['id']; ?>" <?php echo ($partId===(int)$p['id'])?'selected':''; ?>><?php echo htmlspecialchars($p['name']); ?></option>
+      <option value="<?php echo (int)$p['id']; ?>" <?php echo ($partId===(int)$p['id'])?'selected':''; ?>><?php echo htmlspecialchars($p['part_code'] . ' - ' . $p['name']); ?></option>
     <?php endforeach; ?>
   </select>
-  <button type="submit">Afiseaza</button>
 </form>
+
 <?php if ($partId): ?>
-<table>
-  <thead><tr><th>Culoare</th><th>Cod</th><th>Cantitate</th><th>Actualizeaza</th></tr></thead>
+<table class="data-table">
+  <thead><tr><th>Culoare</th><th>Cod</th><th>Cantitate (Delta)</th><th>Conditie</th><th>Pret</th><th>Actiuni</th></tr></thead>
   <tbody>
     <?php foreach ($inventory as $i): ?>
+      <?php $detailsFormId = 'details_form_' . $i['color_id']; ?>
       <tr<?php echo ((int)$i['quantity_in_inventory']===0)?' style="background:#fff7ed"':''; ?>>
         <td><?php echo htmlspecialchars($i['color_name']); ?></td>
         <td><?php echo htmlspecialchars($i['color_code']); ?></td>
-        <td><?php echo (int)$i['quantity_in_inventory']; ?></td>
         <td>
-          <form method="post" action="/inventory/update" class="inline">
+            <span style="font-weight:bold; margin-right:10px;"><?php echo (int)$i['quantity_in_inventory']; ?></span>
+            <form method="post" action="/inventory/update" class="inline" style="display:inline-flex; gap:5px;">
+                <input type="hidden" name="csrf" value="<?php echo htmlspecialchars($csrf); ?>">
+                <input type="hidden" name="part_id" value="<?php echo (int)$partId; ?>">
+                <input type="hidden" name="color_id" value="<?php echo (int)$i['color_id']; ?>">
+                <input type="number" name="delta" value="0" style="width:50px">
+                <input type="text" name="reason" placeholder="Motiv" style="width:80px">
+                <button type="submit" class="btn-small">Upd</button>
+            </form>
+        </td>
+        <td>
+            <select name="condition" form="<?php echo $detailsFormId; ?>">
+                <option value="New" <?php echo ($i['condition_state'] ?? 'New') === 'New' ? 'selected' : ''; ?>>New</option>
+                <option value="Used" <?php echo ($i['condition_state'] ?? 'New') === 'Used' ? 'selected' : ''; ?>>Used</option>
+            </select>
+        </td>
+        <td>
+            <input type="number" step="0.01" name="price" value="<?php echo htmlspecialchars($i['purchase_price'] ?? '0.00'); ?>" style="width:70px" form="<?php echo $detailsFormId; ?>">
+        </td>
+        <td>
+          <form id="<?php echo $detailsFormId; ?>" method="post" action="/inventory/updateDetails" class="inline">
             <input type="hidden" name="csrf" value="<?php echo htmlspecialchars($csrf); ?>">
             <input type="hidden" name="part_id" value="<?php echo (int)$partId; ?>">
             <input type="hidden" name="color_id" value="<?php echo (int)$i['color_id']; ?>">
-            <input type="number" name="delta" value="1">
-            <input type="text" name="reason" placeholder="Motiv">
-            <button type="submit">Aplica</button>
+            <button type="submit" class="btn-small">Salveaza</button>
           </form>
         </td>
       </tr>

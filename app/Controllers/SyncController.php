@@ -4,6 +4,10 @@ namespace App\Controllers;
 use App\Core\Controller;
 use App\Core\Security;
 use App\Models\Part;
+use App\Models\Color;
+use App\Models\SetModel;
+use App\Config\Config;
+use PDO;
 class SyncController extends Controller {
     public function syncBrickLink(): void {
         $this->requirePost();
@@ -20,29 +24,91 @@ class SyncController extends Controller {
         }
         $url = 'https://www.bricklink.com/v2/catalog/catalogitem.page?P=' . urlencode($partCode);
         $html = $this->fetch($url);
+        
         $name = $this->extract($html, '/<title>(.*?)<\/title>/i') ?: 'unknown';
+        $name = preg_replace('/^BrickLink : Part \w+ : /', '', $name);
+        $name = preg_replace('/ - BrickLink Reference Catalog$/', '', $name);
+        
         $image = $this->extract($html, '/<img[^>]+src="([^"]+)"[^>]*class="img-item"/i') ?: null;
-        $years = null;
-        $weight = null;
-        $stud = null;
-        $package = null;
+        if ($image && strpos($image, '//') === 0) $image = 'https:' . $image;
+        
+        $weight = $this->extract($html, '/Weight:.*?([\d\.]+)\s*g/is');
+        $stud = $this->extract($html, '/Stud Dim\.:.*?([\d\s\.]+)\s*in/is');
+        $counterparts = $this->extractSectionItems($html, 'Counterparts');
+        $altMolds = $this->extractSectionItems($html, 'Alternate Molds');
+        $relatedItems = [
+            'counterparts' => $counterparts,
+            'alternate_molds' => $altMolds,
+        ];
+        
         $data = [
-            'name' => $name,
+            'name' => trim($name),
             'part_code' => $partCode,
             'image_url' => $image,
             'bricklink_url' => $url,
-            'years_released' => $years,
-            'weight' => $weight,
+            'weight' => $weight ? (float)$weight : null,
             'stud_dimensions' => $stud,
-            'package_dimensions' => $package,
+            'related_items' => json_encode($relatedItems),
         ];
+        
         $existing = Part::findByCode($partCode);
+        $partId = null;
         if ($existing) {
             Part::update((int)$existing['id'], $data);
+            $partId = (int)$existing['id'];
         } else {
             Part::create($data);
+            $pdoTmp = Config::db();
+            $partId = (int)$pdoTmp->lastInsertId();
         }
-        header('Location: /parts?synced=1');
+        $consists = $this->getPartComposition($partCode);
+        if (!empty($consists) && $partId) {
+            $this->upsertPartComposition($partId, $consists);
+        }
+        header('Location: /parts?synced=1&code=' . urlencode($partCode));
+    }
+    public function syncBrickLinkSet(): void {
+        $this->requirePost();
+        if (!Security::verifyCsrf($_POST['csrf'] ?? null)) {
+            http_response_code(400);
+            echo 'bad request';
+            return;
+        }
+        $setCode = trim($_POST['set_code'] ?? '');
+        if (!$setCode) {
+            http_response_code(422);
+            echo 'invalid';
+            return;
+        }
+        $url = 'https://www.bricklink.com/v2/catalog/catalogitem.page?S=' . urlencode($setCode);
+        $html = $this->fetch($url);
+        $instructionsUrl = $this->extractInstructionsUrl($html);
+        $parts = $this->getSetInventory($setCode);
+        $pdo = Config::db();
+        $stSet = $pdo->prepare('SELECT * FROM sets WHERE set_code=? LIMIT 1');
+        $stSet->execute([$setCode]);
+        $set = $stSet->fetch();
+        if ($set) {
+            $setId = (int)$set['id'];
+            if ($instructionsUrl) {
+                $stUpd = $pdo->prepare('UPDATE sets SET instructions_url=? WHERE id=?');
+                $stUpd->execute([$instructionsUrl, $setId]);
+            }
+            if (!empty($parts)) {
+                foreach ($parts as $p) {
+                    $part = Part::findByCode($p['code']);
+                    if (!$part) continue;
+                    $colorId = null;
+                    if (!empty($p['color'])) {
+                        $c = Color::findByName($p['color']);
+                        $colorId = $c['id'] ?? null;
+                    }
+                    $ins = $pdo->prepare('INSERT INTO set_parts (set_id, part_id, color_id, quantity) VALUES (?,?,?,?) ON DUPLICATE KEY UPDATE quantity=VALUES(quantity)');
+                    $ins->execute([$setId, (int)$part['id'], $colorId, (int)$p['quantity']]);
+                }
+            }
+        }
+        header('Location: /sets?synced=1&code=' . urlencode($setCode));
     }
     private function fetch(string $url): string {
         $opts = ['http' => ['method' => 'GET', 'header' => "User-Agent: LegoInventory\r\n"]];
@@ -53,5 +119,83 @@ class SyncController extends Controller {
         if (preg_match($pattern, $html, $m)) return trim(html_entity_decode($m[1]));
         return null;
     }
+    private function extractSectionItems(string $html, string $sectionTitle): array {
+        if (!$html) return [];
+        $items = [];
+        $pos = stripos($html, $sectionTitle);
+        if ($pos === false) return [];
+        $snippet = substr($html, $pos, 4000);
+        if (preg_match_all('/catalogitem\\.page\\?P=([^"&\\s]+)/i', $snippet, $m)) {
+            foreach (array_unique($m[1]) as $code) {
+                $items[] = ['code' => html_entity_decode($code)];
+            }
+        }
+        return $items;
+    }
+    private function getPartComposition(string $partCode): array {
+        $invUrl = 'https://www.bricklink.com/catalogItemInv.asp?P=' . urlencode($partCode);
+        $html = $this->fetch($invUrl);
+        if (!$html) return [];
+        $items = [];
+        // Match rows containing part links and quantities
+        if (preg_match_all('/catalogitem\\.page\\?P=([^"\\s]+)[\\s\\S]*?Qty[^\\d]*(\\d+)/i', $html, $m, PREG_SET_ORDER)) {
+            foreach ($m as $row) {
+                $items[] = ['code' => html_entity_decode($row[1]), 'quantity' => (int)$row[2]];
+            }
+        }
+        return $items;
+    }
+    private function upsertPartComposition(int $parentPartId, array $items): void {
+        $pdo = Config::db();
+        foreach ($items as $it) {
+            $child = Part::findByCode($it['code']);
+            if (!$child) {
+                Part::create(['name' => $it['code'], 'part_code' => $it['code']]);
+                $child = Part::findByCode($it['code']);
+            }
+            if ($child && isset($child['id'])) {
+                try {
+                    $st = $pdo->prepare('INSERT INTO part_parts (parent_part_id, child_part_id, quantity) VALUES (?,?,?) ON DUPLICATE KEY UPDATE quantity=VALUES(quantity)');
+                    $st->execute([$parentPartId, (int)$child['id'], (int)($it['quantity'] ?? 1)]);
+                } catch (\Throwable $e) {
+                    // ignore if table not migrated yet
+                }
+            }
+        }
+    }
+    private function getSetInventory(string $setCode): array {
+        $invUrl = 'https://www.bricklink.com/catalogItemInv.asp?S=' . urlencode($setCode);
+        $html = $this->fetch($invUrl);
+        if (!$html) return [];
+        $items = [];
+        if (preg_match_all('/catalogitem\\.page\\?P=([^"\\s]+)[\\s\\S]*?Color:\\s*<[^>]*>([^<]*)[\\s\\S]*?Qty[^\\d]*(\\d+)/i', $html, $m, PREG_SET_ORDER)) {
+            foreach ($m as $row) {
+                $items[] = ['code' => html_entity_decode($row[1]), 'color' => trim(html_entity_decode($row[2])), 'quantity' => (int)$row[3]];
+            }
+        } else {
+            // Fallback without color
+            if (preg_match_all('/catalogitem\\.page\\?P=([^"\\s]+)[\\s\\S]*?Qty[^\\d]*(\\d+)/i', $html, $m2, PREG_SET_ORDER)) {
+                foreach ($m2 as $row) {
+                    $items[] = ['code' => html_entity_decode($row[1]), 'quantity' => (int)$row[2]];
+                }
+            }
+        }
+        return $items;
+    }
+    private function extractInstructionsUrl(string $html): ?string {
+        if (!$html) return null;
+        // Try BrickLink instruction download links
+        if (preg_match('/href="([^"]*catalogDownloadInstructions[^"]*)"/i', $html, $m)) {
+            $url = html_entity_decode($m[1]);
+            if (strpos($url, '//') === 0) $url = 'https:' . $url;
+            return $url;
+        }
+        // Generic "Instructions" anchor
+        if (preg_match('/<a[^>]+href="([^"]+)"[^>]*>\\s*Instructions\\s*<\\/a>/i', $html, $m2)) {
+            $url = html_entity_decode($m2[1]);
+            if (strpos($url, '//') === 0) $url = 'https:' . $url;
+            return $url;
+        }
+        return null;
+    }
 }
-
