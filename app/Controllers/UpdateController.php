@@ -23,6 +23,8 @@ class UpdateController extends Controller {
             'remote_short' => $remoteShort,
             'status' => $status,
             'last_backup' => $this->lastBackupPath(),
+            'clear_report' => null,
+            'schema_report' => null,
         ]);
     }
     public function backup(): void {
@@ -72,6 +74,100 @@ class UpdateController extends Controller {
             'before' => $before,
             'after' => $after,
             'migrations' => $migrations,
+            'clear_report' => null,
+            'schema_report' => null,
+        ]);
+    }
+    public function clearDb(): void {
+        $this->requirePost();
+        Security::requireRole('admin');
+        if (!\App\Core\Security::verifyCsrf($_POST['csrf'] ?? null)) {
+            http_response_code(400);
+            echo 'bad request';
+            return;
+        }
+        $pdo = Config::db();
+        $tables = ['set_parts','inventory_history','part_colors','entity_history','part_parts','sets','parts','categories','colors','favorites'];
+        $existing = [];
+        $pdo->exec('SET FOREIGN_KEY_CHECKS=0');
+        foreach ($tables as $t) {
+            try {
+                $pdo->exec('TRUNCATE TABLE ' . $t);
+                $existing[] = $t;
+            } catch (\Throwable $e) {
+            }
+        }
+        $pdo->exec('SET FOREIGN_KEY_CHECKS=1');
+        $local = trim($this->cmd('git rev-parse HEAD'));
+        $remoteHash = trim(explode("\t", trim($this->cmd('git ls-remote origin HEAD')))[0] ?? '');
+        $localShort = $local ? substr($local, -7) : '';
+        $remoteShort = ($remoteHash && $remoteHash !== $local) ? substr($remoteHash, -7) : '';
+        $this->render('admin/update', [
+            'local' => $local,
+            'remote' => $remoteHash,
+            'local_short' => $localShort,
+            'remote_short' => $remoteShort,
+            'status' => $this->cmd('git status -sb'),
+            'last_backup' => $this->lastBackupPath(),
+            'clear_report' => ['cleared' => $existing],
+            'schema_report' => null,
+        ]);
+    }
+    public function verifySchema(): void {
+        $this->requirePost();
+        Security::requireRole('admin');
+        if (!\App\Core\Security::verifyCsrf($_POST['csrf'] ?? null)) {
+            http_response_code(400);
+            echo 'bad request';
+            return;
+        }
+        $pdo = Config::db();
+        $expected = [
+            'users' => ['username','password_hash','role','created_at'],
+            'categories' => ['name'],
+            'parts' => ['name','part_code','version','category_id','image_url','bricklink_url','years_released','weight','stud_dimensions','package_dimensions','no_of_parts','related_items'],
+            'colors' => ['color_name','color_code'],
+            'part_colors' => ['part_id','color_id','quantity_in_inventory','condition_state','purchase_price'],
+            'inventory_history' => ['part_id','color_id','delta','reason','user_id','created_at'],
+            'sets' => ['set_name','set_code','type','year','image','instructions_url'],
+            'set_parts' => ['set_id','part_id','color_id','quantity'],
+            'entity_history' => ['entity_type','entity_id','user_id','changes','created_at'],
+            'part_parts' => ['parent_part_id','child_part_id','quantity'],
+            'migrations' => ['filename','applied_at'],
+        ];
+        $report = ['missing_tables' => [], 'missing_columns' => [], 'ok_tables' => []];
+        foreach ($expected as $table => $cols) {
+            try {
+                $st = $pdo->query('SHOW COLUMNS FROM ' . $table);
+                $rows = $st ? $st->fetchAll(PDO::FETCH_ASSOC) : [];
+                if (!$rows) {
+                    $report['missing_tables'][] = $table;
+                    continue;
+                }
+                $present = array_map(function($r){return $r['Field'] ?? '';}, $rows);
+                $missing = array_values(array_diff($cols, $present));
+                if (!empty($missing)) {
+                    $report['missing_columns'][] = ['table' => $table, 'columns' => $missing];
+                } else {
+                    $report['ok_tables'][] = $table;
+                }
+            } catch (\Throwable $e) {
+                $report['missing_tables'][] = $table;
+            }
+        }
+        $local = trim($this->cmd('git rev-parse HEAD'));
+        $remoteHash = trim(explode("\t", trim($this->cmd('git ls-remote origin HEAD')))[0] ?? '');
+        $localShort = $local ? substr($local, -7) : '';
+        $remoteShort = ($remoteHash && $remoteHash !== $local) ? substr($remoteHash, -7) : '';
+        $this->render('admin/update', [
+            'local' => $local,
+            'remote' => $remoteHash,
+            'local_short' => $localShort,
+            'remote_short' => $remoteShort,
+            'status' => $this->cmd('git status -sb'),
+            'last_backup' => $this->lastBackupPath(),
+            'clear_report' => null,
+            'schema_report' => $report,
         ]);
     }
     private function cmd(string $command): string {

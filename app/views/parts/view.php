@@ -109,6 +109,24 @@
 
 <div class="inventory-section" style="margin-top:30px; border-top:1px solid #eee; padding-top:20px;">
     <h3>Inventar</h3>
+    <div style="margin-bottom:12px; background:#f9fafb; padding:10px; border:1px solid #e5e7eb;">
+        <form method="post" action="/inventory/update" style="display:flex; gap:10px; align-items:center;">
+            <input type="hidden" name="csrf" value="<?php echo htmlspecialchars($csrf ?? ''); ?>">
+            <input type="hidden" name="part_id" value="<?php echo (int)$part['id']; ?>">
+            <label>Culoare:
+                <select name="color_id">
+                    <?php foreach (($colors ?? []) as $c): ?>
+                        <option value="<?php echo (int)$c['id']; ?>"><?php echo htmlspecialchars(($c['color_name'] ?? '') . (($c['color_code'] ?? '') ? ' (' . $c['color_code'] . ')' : '')); ?></option>
+                    <?php endforeach; ?>
+                </select>
+            </label>
+            <label>Cantitate initiala:
+                <input type="number" name="delta" value="1" style="width:80px">
+            </label>
+            <input type="hidden" name="reason" value="add from part view">
+            <button type="submit" class="btn">Adauga</button>
+        </form>
+    </div>
     <table class="data-table">
         <thead>
             <tr>

@@ -43,6 +43,8 @@ $router->add('GET', '/api/suggest', [ApiController::class, 'suggest']);
 $router->add('GET', '/admin/update', [UpdateController::class, 'page']);
 $router->add('POST', '/admin/update/backup', [UpdateController::class, 'backup']);
 $router->add('POST', '/admin/update/apply', [UpdateController::class, 'apply']);
+$router->add('POST', '/admin/update/clear_db', [UpdateController::class, 'clearDb']);
+$router->add('POST', '/admin/update/verify_schema', [UpdateController::class, 'verifySchema']);
 $router->add('GET', '/admin/config', [ConfigController::class, 'page']);
 $router->add('POST', '/admin/config/seed_colors', [ConfigController::class, 'seedColors']);
 $router->add('POST', '/admin/config/seed_parts', [ConfigController::class, 'seedParts']);

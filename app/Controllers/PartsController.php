@@ -104,13 +104,16 @@ class PartsController extends Controller {
         $appearsIn = $pdo->prepare("SELECT COUNT(DISTINCT set_id) FROM set_parts WHERE part_id=?");
         $appearsIn->execute([$id]);
         $appearsInCount = $appearsIn->fetchColumn();
+        
+        $colors = Color::all();
 
         $this->render('parts/view', [
             'part' => $part,
             'inventory' => $inv,
             'relatedItems' => $relatedItems,
             'consistOfParts' => $consistOfParts,
-            'appearsInCount' => $appearsInCount
+            'appearsInCount' => $appearsInCount,
+            'colors' => $colors
         ]);
     }
 

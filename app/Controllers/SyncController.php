@@ -56,12 +56,47 @@ class SyncController extends Controller {
         $existing = Part::findByCode($partCode);
         $partId = null;
         if ($existing) {
-            Part::update((int)$existing['id'], $data);
+            $merged = [
+                'name' => ($data['name'] ?: $existing['name']),
+                'part_code' => $existing['part_code'],
+                'version' => $existing['version'] ?? null,
+                'category_id' => $existing['category_id'] ?? null,
+                'image_url' => ($data['image_url'] ?: ($existing['image_url'] ?? null)),
+                'bricklink_url' => ($data['bricklink_url'] ?: ($existing['bricklink_url'] ?? null)),
+                'years_released' => $existing['years_released'] ?? null,
+                'weight' => ($data['weight'] ?? ($existing['weight'] ?? null)),
+                'stud_dimensions' => ($data['stud_dimensions'] ?: ($existing['stud_dimensions'] ?? null)),
+                'package_dimensions' => $existing['package_dimensions'] ?? null,
+                'no_of_parts' => $existing['no_of_parts'] ?? null,
+                'related_items' => ($data['related_items'] ?: ($existing['related_items'] ?? null)),
+            ];
+            Part::update((int)$existing['id'], $merged);
             $partId = (int)$existing['id'];
+            try {
+                $pdoLog = Config::db();
+                $uid = $_SESSION['user']['id'] ?? null;
+                $stLog = $pdoLog->prepare("INSERT INTO entity_history (entity_type, entity_id, user_id, changes) VALUES ('part', ?, ?, ?)");
+                $stLog->execute([$partId, $uid, 'Sync BrickLink']);
+            } catch (\Throwable $e) {
+            }
         } else {
-            Part::create($data);
+            $defaults = [
+                'version' => null,
+                'category_id' => null,
+                'years_released' => null,
+                'package_dimensions' => null,
+                'no_of_parts' => null,
+            ];
+            Part::create($data + $defaults);
             $pdoTmp = Config::db();
             $partId = (int)$pdoTmp->lastInsertId();
+            try {
+                $pdoLog = Config::db();
+                $uid = $_SESSION['user']['id'] ?? null;
+                $stLog = $pdoLog->prepare("INSERT INTO entity_history (entity_type, entity_id, user_id, changes) VALUES ('part', ?, ?, ?)");
+                $stLog->execute([$partId, $uid, 'Create via BrickLink sync']);
+            } catch (\Throwable $e) {
+            }
         }
         $consists = $this->getPartComposition($partCode);
         if (!empty($consists) && $partId) {
@@ -159,7 +194,27 @@ class SyncController extends Controller {
     }
     private function saveImage(?string $url, string $type, string $code): ?string {
         if (!$url) return null;
-        $data = @file_get_contents($url);
+        if (strpos($url, '//') === 0) $url = 'https:' . $url;
+        $ch = curl_init($url);
+        $ua = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_FOLLOWLOCATION => true,
+            CURLOPT_MAXREDIRS => 5,
+            CURLOPT_CONNECTTIMEOUT => 10,
+            CURLOPT_TIMEOUT => 20,
+            CURLOPT_USERAGENT => $ua,
+            CURLOPT_ENCODING => 'gzip,deflate',
+            CURLOPT_SSL_VERIFYPEER => true,
+            CURLOPT_SSL_VERIFYHOST => 2,
+        ]);
+        $data = curl_exec($ch);
+        if ($data === false) {
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
+            $data = curl_exec($ch);
+        }
+        curl_close($ch);
         if (!$data) return null;
         $dir = __DIR__ . '/../../public/uploads/' . $type;
         if (!is_dir($dir)) @mkdir($dir, 0775, true);
@@ -181,7 +236,7 @@ class SyncController extends Controller {
         $items = [];
         $pos = stripos($html, $sectionTitle);
         if ($pos === false) return [];
-        $snippet = substr($html, $pos, 4000);
+        $snippet = substr($html, $pos, 20000);
         if (preg_match_all('/catalogitem\\.page\\?P=([^"&\\s]+)/i', $snippet, $m)) {
             foreach (array_unique($m[1]) as $code) {
                 $items[] = ['code' => html_entity_decode($code)];
