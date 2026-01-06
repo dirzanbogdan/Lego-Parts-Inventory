@@ -98,6 +98,11 @@ class ConfigController extends Controller {
                  }
              }
         }
+        // Also include Counterparts / Alternate Molds sections
+        $counterparts = $this->extractSectionItems($html, 'Counterparts');
+        $altMolds = $this->extractSectionItems($html, 'Alternate Molds');
+        foreach ($counterparts as $cp) $relatedItems[] = $cp;
+        foreach ($altMolds as $am) $relatedItems[] = $am;
         $relatedJson = !empty($relatedItems) ? json_encode($relatedItems) : null;
 
         $pdo = Config::db();
@@ -215,27 +220,31 @@ class ConfigController extends Controller {
         // Delay before inventory scrape to avoid rate limit
         sleep(random_int(3, 5));
         $invHtml = $this->fetch($invUrl);
-        
-        preg_match_all('/catalogitem.page\?P=([^"&]+).*?color=([^"&]+).*?Qty:\s*(\d+)/is', $invHtml, $matches, PREG_SET_ORDER);
-        
         $pdo = Config::db();
         $count = 0;
-        foreach ($matches as $m) {
-            $pcode = trim($m[1]);
-            $colorCode = trim($m[2]);
-            $qty = (int)trim($m[3]);
-            
-            if ($pcode === '' || $qty <= 0) continue;
-            
-            $childId = $this->ensurePart($pcode);
-            $cId = $this->ensureColorByCode($colorCode);
-            
-            if ($childId) {
-                if ($type === 'S') {
+        if ($type === 'S') {
+            preg_match_all('/catalogitem.page\?P=([^"&]+).*?color=([^"&]+).*?Qty:\s*(\d+)/is', $invHtml, $matches, PREG_SET_ORDER);
+            foreach ($matches as $m) {
+                $pcode = trim($m[1]);
+                $colorCode = trim($m[2]);
+                $qty = (int)trim($m[3]);
+                if ($pcode === '' || $qty <= 0) continue;
+                $childId = $this->ensurePart($pcode);
+                $cId = $this->ensureColorByCode($colorCode);
+                if ($childId) {
                     $stp = $pdo->prepare('INSERT INTO set_parts (set_id, part_id, color_id, quantity) VALUES (?,?,?,?) ON DUPLICATE KEY UPDATE quantity=VALUES(quantity)');
                     $stp->execute([$parentId, $childId, $cId ?: null, $qty]);
                     $count++;
-                } else {
+                }
+            }
+        } else {
+            preg_match_all('/catalogitem.page\?P=([^"&]+)[\s\S]*?Qty:\s*(\d+)/is', $invHtml, $matches, PREG_SET_ORDER);
+            foreach ($matches as $m) {
+                $pcode = trim($m[1]);
+                $qty = (int)trim($m[2]);
+                if ($pcode === '' || $qty <= 0) continue;
+                $childId = $this->ensurePart($pcode);
+                if ($childId) {
                     $pp = $pdo->prepare('INSERT INTO part_parts (parent_part_id, child_part_id, quantity) VALUES (?,?,?) ON DUPLICATE KEY UPDATE quantity=VALUES(quantity)');
                     $pp->execute([$parentId, $childId, $qty]);
                     $count++;
@@ -243,6 +252,19 @@ class ConfigController extends Controller {
             }
         }
         return $count;
+    }
+    private function extractSectionItems(string $html, string $sectionTitle): array {
+        if (!$html) return [];
+        $items = [];
+        $pos = stripos($html, $sectionTitle);
+        if ($pos === false) return [];
+        $snippet = substr($html, $pos, 4000);
+        if (preg_match_all('/catalogitem\\.page\\?P=([^"&\\s]+)/i', $snippet, $m)) {
+            foreach (array_unique($m[1]) as $code) {
+                $items[] = ['code' => html_entity_decode($code)];
+            }
+        }
+        return $items;
     }
 
     public function scrapeColors(): void {
