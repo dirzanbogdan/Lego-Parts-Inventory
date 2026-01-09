@@ -12,10 +12,10 @@
         <?php endif; ?>
         <button type="button" class="btn" onclick="document.getElementById('debug-panel').style.display='block'">Debug</button>
         <button type="button" class="btn" onclick="loadSetChangelog(<?php echo (int)$set['id']; ?>)">Changelog</button>
-        <form method="post" action="/sync/bricklink_set" style="display:inline;">
+        <form method="post" action="/sync/lego_set" style="display:inline;">
             <input type="hidden" name="csrf" value="<?php echo htmlspecialchars($csrf); ?>">
             <input type="hidden" name="set_code" value="<?php echo htmlspecialchars($set['set_code']); ?>">
-            <button type="submit" class="btn">Sync BL</button>
+            <button type="submit" class="btn">Sync Rebrickable</button>
         </form>
         <form method="post" action="/sets/favorite" style="display:inline;">
             <input type="hidden" name="csrf" value="<?php echo htmlspecialchars($csrf); ?>">

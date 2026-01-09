@@ -16,7 +16,7 @@
         <form method="post" action="/sync/lego_part" style="display:inline;">
             <input type="hidden" name="csrf" value="<?php echo htmlspecialchars($csrf ?? ''); ?>">
             <input type="hidden" name="part_code" value="<?php echo htmlspecialchars($part['part_code']); ?>">
-            <button type="submit" class="btn">Sync LEGO PAB</button>
+            <button type="submit" class="btn">Sync Rebrickable</button>
         </form>
     </div>
 </div>
