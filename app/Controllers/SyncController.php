@@ -228,28 +228,43 @@ class SyncController extends Controller {
     private function fetch(string $url): string {
         $this->lastFetchMeta = [];
         $ch = curl_init($url);
-        $ua = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
-        $hdrs = [
-            'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
-            'Accept-Language: en-US,en;q=0.9,ro;q=0.8',
-            'Referer: https://www.bricklink.com/',
+        
+        $headers = [
+            'Authority: www.lego.com',
+            'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+            'Accept-Language: en-US,en;q=0.9',
+            'Cache-Control: max-age=0',
+            'Sec-Ch-Ua: "Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
+            'Sec-Ch-Ua-Mobile: ?0',
+            'Sec-Ch-Ua-Platform: "Windows"',
+            'Sec-Fetch-Dest: document',
+            'Sec-Fetch-Mode: navigate',
+            'Sec-Fetch-Site: none',
+            'Sec-Fetch-User: ?1',
+            'Upgrade-Insecure-Requests: 1',
+            'User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Referer: https://www.lego.com/',
         ];
+
         curl_setopt_array($ch, [
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_FOLLOWLOCATION => true,
             CURLOPT_MAXREDIRS => 5,
             CURLOPT_CONNECTTIMEOUT => 10,
             CURLOPT_TIMEOUT => 20,
-            CURLOPT_USERAGENT => $ua,
-            CURLOPT_HTTPHEADER => $hdrs,
-            CURLOPT_ENCODING => 'gzip,deflate',
+            CURLOPT_HTTPHEADER => $headers,
+            CURLOPT_ENCODING => 'gzip,deflate,br',
             CURLOPT_SSL_VERIFYPEER => true,
             CURLOPT_SSL_VERIFYHOST => 2,
+            CURLOPT_COOKIEJAR => sys_get_temp_dir() . '/lego_cookies.txt',
+            CURLOPT_COOKIEFILE => sys_get_temp_dir() . '/lego_cookies.txt',
         ]);
+        
         $html = curl_exec($ch);
         $err = curl_error($ch);
         $code = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
         $eff = (string)curl_getinfo($ch, CURLINFO_EFFECTIVE_URL);
+        
         if ($html === false || $code === 0) {
             curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
             curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
@@ -258,6 +273,7 @@ class SyncController extends Controller {
             $code = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
             $eff = (string)curl_getinfo($ch, CURLINFO_EFFECTIVE_URL);
         }
+        
         curl_close($ch);
         $this->lastFetchMeta = ['http_code' => $code, 'error' => $err, 'effective_url' => $eff, 'length' => is_string($html) ? strlen($html) : 0];
         return is_string($html) ? $html : '';
