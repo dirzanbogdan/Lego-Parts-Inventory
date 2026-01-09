@@ -9,16 +9,29 @@ class RebrickableService {
 
     public function __construct() {
         $this->storagePath = __DIR__ . '/../../storage/rebrickable/';
-        if (!is_dir($this->storagePath)) {
-            mkdir($this->storagePath, 0777, true);
+    }
+
+    private function initStorage(): void {
+        if (!file_exists($this->storagePath)) {
+            if (!mkdir($this->storagePath, 0777, true) && !is_dir($this->storagePath)) {
+                throw new \RuntimeException(sprintf('Directory "%s" was not created', $this->storagePath));
+            }
+        }
+        if (!is_writable($this->storagePath)) {
+            throw new \RuntimeException(sprintf('Directory "%s" is not writable', $this->storagePath));
         }
     }
 
     public function getFilePath(string $filename): string {
+        $this->initStorage();
         return $this->storagePath . $filename;
     }
 
     public function downloadFile(string $filename): bool {
+        $this->initStorage();
+        if (!extension_loaded('zlib')) {
+            throw new \RuntimeException('Zlib extension is required for reading gz files.');
+        }
         $url = self::BASE_URL . $filename . '.gz';
         $dest = $this->storagePath . $filename . '.gz';
         
