@@ -47,10 +47,9 @@
 <div id="debug-panel" class="card" style="display:<?php echo !empty($_GET['debug'])?'block':'none'; ?>; margin-top:20px;">
     <h3>Debug set</h3>
     <p>Parametri: set_code=<?php echo htmlspecialchars($set['set_code']); ?></p>
-    <p>Link-uri BrickLink (pentru verificare):</p>
+    <p>Link-uri (pentru verificare):</p>
     <ul>
-        <li>Set: <a href="https://www.bricklink.com/v2/catalog/catalogitem.page?S=<?php echo urlencode($set['set_code']); ?>" target="_blank">Page</a></li>
-        <li>Inventory: <a href="https://www.bricklink.com/catalogItemInv.asp?S=<?php echo urlencode($set['set_code']); ?>" target="_blank">Inventory</a></li>
+        <li>LEGO PAB: <a href="https://www.lego.com/en-us/pick-and-build/pick-a-brick?query=<?php echo urlencode($set['set_code']); ?>" target="_blank">Page</a></li>
     </ul>
 
     <?php if (!empty($debug)): ?>

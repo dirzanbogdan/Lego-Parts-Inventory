@@ -10,189 +10,221 @@ use App\Config\Config;
 use PDO;
 class SyncController extends Controller {
     private $lastFetchMeta = [];
-    public function syncBrickLink(): void {
+    public function syncLegoPart(): void {
         $this->requirePost();
         if (!Security::verifyCsrf($_POST['csrf'] ?? null)) {
             http_response_code(400);
             echo 'bad request';
             return;
         }
-        $partCode = trim($_POST['part_code'] ?? '');
+        $partCode = trim($_POST['part_code'] ?? $_POST['code'] ?? '');
         if (!$partCode) {
             http_response_code(422);
             echo 'invalid';
             return;
         }
-        $url = 'https://www.bricklink.com/v2/catalog/catalogitem.page?P=' . urlencode($partCode);
-        $html = $this->fetch($url);
+
+        // LEGO PAB Search
+        $results = $this->searchLegoPAB($partCode);
         
-        $name = $this->extract($html, '/<title>(.*?)<\/title>/i') ?: 'unknown';
-        $name = preg_replace('/^BrickLink : Part \w+ : /', '', $name);
-        $name = preg_replace('/ - BrickLink Reference Catalog$/', '', $name);
-        
-        $image = $this->extract($html, '/<img[^>]+src="([^"]+)"[^>]*class="img-item"/i') ?: null;
-        if ($image && strpos($image, '//') === 0) $image = 'https:' . $image;
-        $localImg = $this->saveImage($image, 'parts', $partCode);
-        
-        $weight = $this->extract($html, '/Weight:.*?([\d\.]+)\s*g/is');
-        $stud = $this->extract($html, '/Stud Dim\.:.*?([\d\s\.]+)\s*in/is');
-        $counterparts = $this->extractSectionItems($html, 'Counterparts');
-        $altMolds = $this->extractSectionItems($html, 'Alternate Molds');
-        $relatedItems = [
-            'counterparts' => $counterparts,
-            'alternate_molds' => $altMolds,
-        ];
+        // If we get multiple results, pick the first one that matches the design ID
+        $bestMatch = null;
+        foreach ($results as $res) {
+            if (isset($res['designId']) && $res['designId'] === $partCode) {
+                $bestMatch = $res;
+                break;
+            }
+        }
+        if (!$bestMatch && !empty($results)) {
+            $bestMatch = $results[0]; // Fallback
+        }
+
+        $name = $bestMatch['name'] ?? 'Unknown Part';
+        $imageUrl = $bestMatch['imageUrl'] ?? null;
+        $localImg = $this->saveImage($imageUrl, 'parts', $partCode);
         
         $data = [
             'name' => trim($name),
             'part_code' => $partCode,
-            'image_url' => $localImg ?: $image,
-            'bricklink_url' => $url,
-            'weight' => $weight ? (float)$weight : null,
-            'stud_dimensions' => $stud,
-            'related_items' => json_encode($relatedItems),
+            'image_url' => $localImg ?: $imageUrl,
+            'bricklink_url' => 'https://www.lego.com/en-us/pick-and-build/pick-a-brick?query=' . urlencode($partCode),
         ];
         
         $existing = Part::findByCode($partCode);
         $partId = null;
         if ($existing) {
-            $merged = [
-                'name' => ($data['name'] ?: $existing['name']),
-                'part_code' => $existing['part_code'],
-                'version' => $existing['version'] ?? null,
-                'category_id' => $existing['category_id'] ?? null,
-                'image_url' => ($data['image_url'] ?: ($existing['image_url'] ?? null)),
-                'bricklink_url' => ($data['bricklink_url'] ?: ($existing['bricklink_url'] ?? null)),
-                'years_released' => $existing['years_released'] ?? null,
-                'weight' => ($data['weight'] ?? ($existing['weight'] ?? null)),
-                'stud_dimensions' => ($data['stud_dimensions'] ?: ($existing['stud_dimensions'] ?? null)),
-                'package_dimensions' => $existing['package_dimensions'] ?? null,
-                'no_of_parts' => $existing['no_of_parts'] ?? null,
-                'related_items' => ($data['related_items'] ?: ($existing['related_items'] ?? null)),
-            ];
+            $merged = array_merge($existing, array_filter($data)); 
             Part::update((int)$existing['id'], $merged);
             $partId = (int)$existing['id'];
-            try {
-                $pdoLog = Config::db();
-                $uid = $_SESSION['user']['id'] ?? null;
-                $stLog = $pdoLog->prepare("INSERT INTO entity_history (entity_type, entity_id, user_id, changes) VALUES ('part', ?, ?, ?)");
-                $stLog->execute([$partId, $uid, 'Sync BrickLink']);
-            } catch (\Throwable $e) {
-            }
         } else {
-            $defaults = [
-                'version' => null,
-                'category_id' => null,
-                'years_released' => null,
-                'package_dimensions' => null,
-                'no_of_parts' => null,
-            ];
-            Part::create($data + $defaults);
+            Part::create($data);
             $pdoTmp = Config::db();
             $partId = (int)$pdoTmp->lastInsertId();
-            try {
-                $pdoLog = Config::db();
-                $uid = $_SESSION['user']['id'] ?? null;
-                $stLog = $pdoLog->prepare("INSERT INTO entity_history (entity_type, entity_id, user_id, changes) VALUES ('part', ?, ?, ?)");
-                $stLog->execute([$partId, $uid, 'Create via BrickLink sync']);
-            } catch (\Throwable $e) {
-            }
         }
-        $consists = $this->getPartComposition($partCode);
-        if (!empty($consists) && $partId) {
-            $this->upsertPartComposition($partId, $consists);
+
+        if ($this->isJsonRequest()) {
+             header('Content-Type: application/json');
+             echo json_encode([
+                 'status' => $partId ? 'ok' : 'err',
+                 'type' => 'part',
+                 'code' => $partCode,
+                 'related_count' => 0, 
+                 'inv_count' => 0,
+                 'log' => $partId ? ['Synced from LEGO PAB'] : ['Not found on LEGO PAB']
+             ]);
+             exit;
         }
+
         if ($partId) {
             header('Location: /parts/view?id=' . $partId . '&synced=1');
         } else {
             header('Location: /parts?synced=1&code=' . urlencode($partCode));
         }
     }
-    public function syncBrickLinkSet(): void {
+
+    public function syncLegoSet(): void {
         $this->requirePost();
         if (!Security::verifyCsrf($_POST['csrf'] ?? null)) {
             http_response_code(400);
             echo 'bad request';
             return;
         }
-        $setCode = trim($_POST['set_code'] ?? '');
+        $setCode = trim($_POST['set_code'] ?? $_POST['code'] ?? '');
         if (!$setCode) {
             http_response_code(422);
             echo 'invalid';
             return;
         }
-        $url = 'https://www.bricklink.com/v2/catalog/catalogitem.page?S=' . urlencode($setCode);
-        $html = $this->fetch($url);
+        
         $syncLog = [];
-        $syncLog[] = 'fetch_set_url=' . $url;
-        $syncLog[] = 'fetch_set_len=' . strlen($html);
-        $instructionsUrl = $this->extractInstructionsUrl($html);
-        if ($instructionsUrl) {
-            $chk = $this->fetch($instructionsUrl);
-            $codeChk = (int)($this->lastFetchMeta['http_code'] ?? 0);
-            if ($codeChk !== 200 || !$chk) {
-                $instructionsUrl = null;
-            }
-        }
-        $syncLog[] = 'instructions_valid=' . ($instructionsUrl ? '1' : '0');
+        $syncLog[] = 'source=lego_pab';
         
-        // Fetch Inventory
-        $invUrl = 'https://www.bricklink.com/catalogItemInv.asp?S=' . urlencode($setCode);
-        $syncLog[] = 'inv_url=' . $invUrl;
-        
-        // Pass syncLog by reference to capture debug info from getSetInventory if needed, 
-        // but getSetInventory is private. Let's just fetch here or rely on getSetInventory returning logs?
-        // Simpler: let getSetInventory return items, and we log count.
-        // If count is 0, we might want to log the HTML snippet.
-        
-        // We need to fetch inside getSetInventory, but we want the HTML for debug if it fails.
-        // Let's refactor getSetInventory to take the HTML or return metadata.
-        // For now, I will modify getSetInventory to allow logging.
-        
-        $parts = $this->getSetInventory($setCode, $syncLog);
-        
-        $syncLog[] = 'inv_http_code=' . (int)($this->lastFetchMeta['http_code'] ?? 0);
-        $syncLog[] = 'inv_fetch_len=' . (int)($this->lastFetchMeta['length'] ?? 0);
-        
+        $elements = $this->searchLegoPAB($setCode);
+        $syncLog[] = 'elements_found=' . count($elements);
+
         $pdo = Config::db();
         $stSet = $pdo->prepare('SELECT * FROM sets WHERE set_code=? LIMIT 1');
         $stSet->execute([$setCode]);
         $set = $stSet->fetch();
-        if ($set) {
+        
+        $setId = null;
+        if (!$set) {
+            // Create set if not exists (Basic info since PAB doesn't give full set details easily)
+            SetModel::create([
+                'set_name' => 'Set ' . $setCode,
+                'set_code' => $setCode,
+                'type' => 'Standard',
+                'year' => (int)date('Y'), // Default to current year
+                'image' => null,
+                'instructions_url' => null
+            ]);
+            $setId = (int)$pdo->lastInsertId();
+            $syncLog[] = 'created_set=' . $setId;
+        } else {
             $setId = (int)$set['id'];
-            if ($instructionsUrl) {
-                $stUpd = $pdo->prepare('UPDATE sets SET instructions_url=? WHERE id=?');
-                $stUpd->execute([$instructionsUrl, $setId]);
-            }
-            if (!empty($parts)) {
-                foreach ($parts as $p) {
-                    $part = Part::findByCode($p['code']);
-                    if (!$part) continue;
-                    $colorId = null;
-                    if (!empty($p['color'])) {
-                        $c = Color::findByName($p['color']);
-                        $colorId = $c['id'] ?? null;
+        }
+
+        if ($setId) {
+            if (!empty($elements)) {
+                foreach ($elements as $el) {
+                    $designId = $el['designId'] ?? null;
+                    if (!$designId) continue;
+                    
+                    // Sync Part if missing
+                    $part = Part::findByCode($designId);
+                    if (!$part) {
+                        Part::create([
+                            'name' => $el['name'] ?? $designId,
+                            'part_code' => $designId,
+                            'image_url' => $el['imageUrl'] ?? null,
+                            'bricklink_url' => 'https://www.lego.com/en-us/pick-and-build/pick-a-brick?query=' . urlencode($designId)
+                        ]);
+                        $part = Part::findByCode($designId);
                     }
-                    $ins = $pdo->prepare('INSERT INTO set_parts (set_id, part_id, color_id, quantity) VALUES (?,?,?,?) ON DUPLICATE KEY UPDATE quantity=VALUES(quantity)');
-                    $ins->execute([$setId, (int)$part['id'], $colorId, (int)$p['quantity']]);
+                    
+                    $colorId = null;
+                    if (isset($el['colorId'])) {
+                         $stC = $pdo->prepare('SELECT id FROM colors WHERE color_code=? LIMIT 1');
+                         $stC->execute([$el['colorId']]);
+                         $colorId = $stC->fetchColumn();
+                         
+                         if (!$colorId) {
+                             $cName = $el['colorName'] ?? ('Color ' . $el['colorId']);
+                             $pdo->prepare('INSERT INTO colors (color_name, color_code) VALUES (?,?)')->execute([$cName, $el['colorId']]);
+                             $colorId = $pdo->lastInsertId();
+                         }
+                    }
+                    
+                    if ($part && $colorId) {
+                         $qty = 1; // PAB usually lists unique elements, not BOM quantity per se in search results, but sometimes it does. 
+                         // However, for "search by set", PAB might list the element multiple times or just once. 
+                         // If PAB result doesn't have quantity, assume 1.
+                         // Actually PAB "search by set" usually shows the parts you can buy.
+                         
+                         $ins = $pdo->prepare('INSERT INTO set_parts (set_id, part_id, color_id, quantity) VALUES (?,?,?,?) ON DUPLICATE KEY UPDATE quantity=VALUES(quantity)');
+                         $ins->execute([$setId, (int)$part['id'], $colorId, $qty]);
+                    }
                 }
-                $syncLog[] = 'inv_set_count=' . count($parts);
-            } else {
-                $syncLog[] = 'inv_set_count=0';
             }
-            try {
+            
+            // Log
+             try {
                 $uid = $_SESSION['user']['id'] ?? null;
                 $stLog = $pdo->prepare("INSERT INTO entity_history (entity_type, entity_id, user_id, changes) VALUES ('set', ?, ?, ?)");
                 $stLog->execute([$setId, $uid, json_encode($syncLog)]);
-            } catch (\Throwable $e) {
-            }
+            } catch (\Throwable $e) {}
         }
+        
+        if ($this->isJsonRequest()) {
+             header('Content-Type: application/json');
+             echo json_encode([
+                 'status' => $setId ? 'ok' : 'err',
+                 'type' => 'set',
+                 'code' => $setCode,
+                 'instructions_url' => null,
+                 'inv_count' => count($elements),
+                 'log' => $syncLog
+             ]);
+             exit;
+        }
+
         if (!empty($setId)) {
             header('Location: /sets/view?id=' . $setId . '&synced=1');
         } else {
             header('Location: /sets?synced=1&code=' . urlencode($setCode));
         }
     }
+
+    private function isJsonRequest(): bool {
+        return isset($_SERVER['HTTP_ACCEPT']) && strpos($_SERVER['HTTP_ACCEPT'], 'application/json') !== false;
+    }
+
+    private function searchLegoPAB(string $query): array {
+        $url = 'https://www.lego.com/en-us/pick-and-build/pick-a-brick?query=' . urlencode($query);
+        $html = $this->fetch($url);
+        
+        // Attempt to parse __NEXT_DATA__
+        if (preg_match('/<script id="__NEXT_DATA__" type="application\/json">(.*?)<\/script>/', $html, $m)) {
+            $data = json_decode($m[1], true);
+            // Navigate: props -> pageProps -> initialData -> elements
+            // Or similar structure. This is highly volatile.
+            // I'll search recursively for "elements" or "results" key in the JSON.
+            return $this->findKeyInArray($data, 'elements') ?? [];
+        }
+        return [];
+    }
+    
+    private function findKeyInArray(array $array, string $key) {
+        if (isset($array[$key])) return $array[$key];
+        foreach ($array as $k => $v) {
+            if (is_array($v)) {
+                $res = $this->findKeyInArray($v, $key);
+                if ($res) return $res;
+            }
+        }
+        return null;
+    }
+
     private function fetch(string $url): string {
         $this->lastFetchMeta = [];
         $ch = curl_init($url);

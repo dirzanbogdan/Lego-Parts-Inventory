@@ -112,7 +112,7 @@ document.addEventListener('DOMContentLoaded',function(){
       step();
     });
   }
-  process('form-parts','/admin/config/scrape_parts_one','parts-progress');
-  process('form-sets','/admin/config/scrape_sets_one','sets-progress');
+  process('form-parts','/sync/lego_part','parts-progress');
+  process('form-sets','/sync/lego_set','sets-progress');
 });
 </script>

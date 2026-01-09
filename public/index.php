@@ -51,6 +51,6 @@ $router->add('POST', '/admin/config/seed_parts', [ConfigController::class, 'seed
 $router->add('POST', '/admin/config/seed_sets', [ConfigController::class, 'seedSets']);
 $router->add('POST', '/admin/config/scrape_parts_one', [ConfigController::class, 'scrapePartsOne']);
 $router->add('POST', '/admin/config/scrape_sets_one', [ConfigController::class, 'scrapeSetsOne']);
-$router->add('POST', '/sync/bricklink', [SyncController::class, 'syncBrickLink']);
-$router->add('POST', '/sync/bricklink_set', [SyncController::class, 'syncBrickLinkSet']);
+$router->add('POST', '/sync/lego_part', [SyncController::class, 'syncLegoPart']);
+$router->add('POST', '/sync/lego_set', [SyncController::class, 'syncLegoSet']);
 $router->dispatch();
