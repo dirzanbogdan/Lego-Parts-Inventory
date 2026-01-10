@@ -37,16 +37,31 @@ foreach ($files as $file) {
     }
 
     echo "Running migration: $migration\n";
-    $sql = file_get_contents($file);
+    $sqlContent = file_get_contents($file);
     
+    // Split SQL into individual statements
+    $statements = array_filter(
+        array_map('trim', explode(';', $sqlContent)),
+        function($stmt) {
+            return !empty($stmt);
+        }
+    );
+
     try {
-        $pdo->exec($sql);
+        $pdo->beginTransaction();
+        foreach ($statements as $stmt) {
+            $pdo->exec($stmt);
+        }
+        
+        // Record migration
         $stmt = $pdo->prepare("INSERT INTO migrations (migration) VALUES (?)");
         $stmt->execute([$migration]);
+        
+        $pdo->commit();
         echo "Done.\n";
     } catch (PDOException $e) {
+        $pdo->rollBack();
         echo "Error in $migration: " . $e->getMessage() . "\n";
-        exit(1);
     }
 }
 
