@@ -7,3 +7,4 @@ public/images/parts
 *.zip
 *.gz
 db_config.php
+app/Config/local_env.php

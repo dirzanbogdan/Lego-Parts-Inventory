@@ -10,6 +10,7 @@ class Config {
 
     public static function db(): PDO {
         if (self::$pdo === null) {
+            // Default config
             $config = [
                 'host' => 'localhost',
                 'db'   => 'lego_inventory',
@@ -18,10 +19,25 @@ class Config {
                 'charset' => 'utf8mb4'
             ];
 
-            // Load local config if exists
-            $configFile = __DIR__ . '/../../db_config.php';
-            if (file_exists($configFile)) {
-                $localConfig = require $configFile;
+            // 1. Try loading from app/Config/local_env.php (Environment variables)
+            $envFile = __DIR__ . '/../Config/local_env.php';
+            if (file_exists($envFile)) {
+                require_once $envFile;
+                
+                // Read from environment variables
+                $envHost = getenv('DB_HOST');
+                $envDb   = getenv('DB_NAME');
+                $envUser = getenv('DB_USER');
+                $envPass = getenv('DB_PASS');
+                
+                if ($envHost !== false) $config['host'] = $envHost;
+                if ($envDb !== false)   $config['db']   = $envDb;
+                if ($envUser !== false) $config['user'] = $envUser;
+                if ($envPass !== false) $config['pass'] = str_replace('"', '', $envPass); // Remove quotes if present
+            } 
+            // 2. Fallback to root db_config.php (Array return)
+            elseif (file_exists(__DIR__ . '/../../db_config.php')) {
+                $localConfig = require __DIR__ . '/../../db_config.php';
                 if (is_array($localConfig)) {
                     $config = array_merge($config, $localConfig);
                 }
