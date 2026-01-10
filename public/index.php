@@ -13,5 +13,6 @@ $router->get('/search', [HomeController::class, 'search']);
 $router->get('/sets', [SetsController::class, 'index']);
 $router->get('/sets/{id}', [SetsController::class, 'show']);
 $router->get('/parts/{id}', [PartsController::class, 'show']);
+$router->post('/parts/update', [PartsController::class, 'update']);
 
 $router->resolve();
