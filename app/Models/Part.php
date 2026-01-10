@@ -6,10 +6,10 @@ use App\Core\Config;
 use PDO;
 
 class Part {
-    public string $part_num;
-    public string $name;
-    public int $part_cat_id;
-    public ?string $part_material;
+    public $part_num;
+    public $name;
+    public $part_cat_id;
+    public $part_material;
 
     public static function find(string $part_num): ?self {
         $pdo = Config::db();

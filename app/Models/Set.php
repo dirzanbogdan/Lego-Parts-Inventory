@@ -6,12 +6,12 @@ use App\Core\Config;
 use PDO;
 
 class Set {
-    public string $set_num;
-    public string $name;
-    public int $year;
-    public int $theme_id;
-    public int $num_parts;
-    public ?string $img_url;
+    public $set_num;
+    public $name;
+    public $year;
+    public $theme_id;
+    public $num_parts;
+    public $img_url;
 
     public static function findAll(int $limit = 50, int $offset = 0): array {
         $pdo = Config::db();

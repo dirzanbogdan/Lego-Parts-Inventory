@@ -6,8 +6,8 @@ use App\Core\Config;
 use PDO;
 
 class ImportService {
-    private PDO $pdo;
-    private string $basePath;
+    private $pdo;
+    private $basePath;
 
     public function __construct() {
         $this->pdo = Config::db();

@@ -6,7 +6,7 @@ use PDO;
 use PDOException;
 
 class Config {
-    private static ?PDO $pdo = null;
+    private static $pdo = null;
 
     public static function db(): PDO {
         if (self::$pdo === null) {
