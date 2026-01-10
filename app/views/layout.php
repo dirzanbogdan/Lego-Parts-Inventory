@@ -20,6 +20,7 @@
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav me-auto">
                     <li class="nav-item"><a class="nav-link" href="/sets">Sets</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/admin/update">Update</a></li>
                 </ul>
                 <form class="d-flex" action="/search" method="get">
                     <select name="type" class="form-select me-2" style="width: 100px;">

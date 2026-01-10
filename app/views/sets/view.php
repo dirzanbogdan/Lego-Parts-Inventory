@@ -11,45 +11,51 @@
     </div>
 </div>
 
-<h3>Inventory</h3>
-<table class="table table-striped table-hover">
-    <thead>
-        <tr>
-            <th>Image</th>
-            <th>Part Num</th>
-            <th>Color</th>
-            <th>Part Name</th>
-            <th>Qty</th>
-            <th>Owned</th>
-            <th>Spare</th>
-        </tr>
-    </thead>
-    <tbody>
-        <?php foreach ($inventory as $item): ?>
-        <tr class="<?= ($item['user_quantity'] >= $item['quantity']) ? 'table-success' : '' ?>">
-            <td>
-                <img src="/parts_images/parts_<?= $item['color_id'] ?>/<?= $item['part_num'] ?>.png" 
-                     class="part-img" 
-                     alt="Part Image"
-                     onerror="this.src='/images/no-image.png'"
-                     style="max-width: 50px;">
-            </td>
-            <td><a href="/parts/<?= $item['part_num'] ?>"><?= $item['part_num'] ?></a></td>
-            <td>
-                <span class="badge" style="background-color: #<?= $item['rgb'] ?>; color: <?= (hexdec($item['rgb']) > 0x888888) ? '#000' : '#FFF' ?>;">
-                    <?= htmlspecialchars($item['color_name']) ?>
-                </span>
-            </td>
-            <td><?= htmlspecialchars($item['part_name']) ?></td>
-            <td><?= $item['quantity'] ?></td>
-            <td>
-                <?= $item['user_quantity'] ?>
-                <?php if ($item['user_quantity'] < $item['quantity']): ?>
-                    <span class="text-danger">(-<?= $item['quantity'] - $item['user_quantity'] ?>)</span>
-                <?php endif; ?>
-            </td>
-            <td><?= $item['is_spare'] ? 'Yes' : 'No' ?></td>
-        </tr>
-        <?php endforeach; ?>
-    </tbody>
-</table>
+<?php if (empty($inventory)): ?>
+    <div class="alert alert-warning">
+        No inventory details found for this set. Please ensure the database is populated.
+    </div>
+<?php else: ?>
+    <h3>Inventory</h3>
+    <table class="table table-striped table-hover">
+        <thead>
+            <tr>
+                <th>Image</th>
+                <th>Part Num</th>
+                <th>Color</th>
+                <th>Part Name</th>
+                <th>Qty</th>
+                <th>Owned</th>
+                <th>Spare</th>
+            </tr>
+        </thead>
+        <tbody>
+            <?php foreach ($inventory as $item): ?>
+            <tr class="<?= ($item['user_quantity'] >= $item['quantity']) ? 'table-success' : '' ?>">
+                <td>
+                    <img src="/parts_images/parts_<?= $item['color_id'] ?>/<?= $item['part_num'] ?>.png" 
+                         class="part-img" 
+                         alt="Part Image"
+                         onerror="this.src='/images/no-image.png'"
+                         style="max-width: 50px;">
+                </td>
+                <td><a href="/parts/<?= $item['part_num'] ?>"><?= $item['part_num'] ?></a></td>
+                <td>
+                    <span class="badge" style="background-color: #<?= $item['rgb'] ?>; color: <?= (hexdec($item['rgb']) > 0x888888) ? '#000' : '#FFF' ?>;">
+                        <?= htmlspecialchars($item['color_name']) ?>
+                    </span>
+                </td>
+                <td><?= htmlspecialchars($item['part_name']) ?></td>
+                <td><?= $item['quantity'] ?></td>
+                <td>
+                    <?= $item['user_quantity'] ?>
+                    <?php if ($item['user_quantity'] < $item['quantity']): ?>
+                        <span class="text-danger">(-<?= $item['quantity'] - $item['user_quantity'] ?>)</span>
+                    <?php endif; ?>
+                </td>
+                <td><?= $item['is_spare'] ? 'Yes' : 'No' ?></td>
+            </tr>
+            <?php endforeach; ?>
+        </tbody>
+    </table>
+<?php endif; ?>
