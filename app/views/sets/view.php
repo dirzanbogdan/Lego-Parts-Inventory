@@ -6,7 +6,7 @@
         <h1><?= htmlspecialchars($set->name) ?></h1>
         <p class="lead">Set: <?= $set->set_num ?></p>
         <p>Year: <?= $set->year ?></p>
-        <p>Theme ID: <?= $set->theme_id ?></p>
+        <p>Theme: <a href="/search?type=sets&q=<?= urlencode($set->theme_name ?? '') ?>"><?= htmlspecialchars($set->theme_name ?? $set->theme_id) ?></a></p>
         <p>Parts: <?= $set->num_parts ?></p>
     </div>
 </div>

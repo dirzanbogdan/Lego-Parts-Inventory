@@ -12,10 +12,17 @@ class Set {
     public $theme_id;
     public $num_parts;
     public $img_url;
+    public $theme_name;
 
     public static function findAll(int $limit = 50, int $offset = 0): array {
         $pdo = Config::db();
-        $stmt = $pdo->prepare("SELECT * FROM sets ORDER BY year DESC, name ASC LIMIT ? OFFSET ?");
+        $stmt = $pdo->prepare("
+            SELECT s.*, t.name as theme_name 
+            FROM sets s 
+            LEFT JOIN themes t ON s.theme_id = t.id 
+            ORDER BY s.year DESC, s.name ASC 
+            LIMIT ? OFFSET ?
+        ");
         $stmt->bindValue(1, $limit, PDO::PARAM_INT);
         $stmt->bindValue(2, $offset, PDO::PARAM_INT);
         $stmt->execute();
@@ -24,7 +31,12 @@ class Set {
 
     public static function find(string $set_num): ?self {
         $pdo = Config::db();
-        $stmt = $pdo->prepare("SELECT * FROM sets WHERE set_num = ?");
+        $stmt = $pdo->prepare("
+            SELECT s.*, t.name as theme_name 
+            FROM sets s 
+            LEFT JOIN themes t ON s.theme_id = t.id 
+            WHERE s.set_num = ?
+        ");
         $stmt->execute([$set_num]);
         $stmt->setFetchMode(PDO::FETCH_CLASS, self::class);
         return $stmt->fetch() ?: null;
@@ -37,9 +49,15 @@ class Set {
 
     public static function search(string $query): array {
         $pdo = Config::db();
-        $stmt = $pdo->prepare("SELECT * FROM sets WHERE name LIKE ? OR set_num LIKE ? LIMIT 50");
+        $stmt = $pdo->prepare("
+            SELECT s.*, t.name as theme_name 
+            FROM sets s 
+            LEFT JOIN themes t ON s.theme_id = t.id 
+            WHERE s.name LIKE ? OR s.set_num LIKE ? OR t.name LIKE ? 
+            LIMIT 50
+        ");
         $term = "%$query%";
-        $stmt->execute([$term, $term]);
+        $stmt->execute([$term, $term, $term]);
         return $stmt->fetchAll(PDO::FETCH_CLASS, self::class);
     }
 
