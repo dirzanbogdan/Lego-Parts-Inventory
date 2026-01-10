@@ -1,0 +1,10 @@
+{
+    "name": "lego/inventory",
+    "description": "Lego Parts Inventory Manager",
+    "autoload": {
+        "psr-4": {
+            "App\\": "app/"
+        }
+    },
+    "require": {}
+}

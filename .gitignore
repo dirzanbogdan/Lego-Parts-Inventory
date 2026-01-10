@@ -1,0 +1,8 @@
+vendor/
+.env
+parts and sets/
+parts and sets
+public/images/parts
+*.csv
+*.zip
+*.gz

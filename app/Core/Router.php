@@ -1,56 +1,41 @@
 <?php
-declare(strict_types=1);
+
 namespace App\Core;
+
 class Router {
-    private $routes = [];
-    public function add(string $method, string $pattern, $handler): void {
-        $this->routes[] = array($method, $pattern, $handler);
+    protected $routes = [];
+
+    public function get($path, $callback) {
+        $this->routes['GET'][$path] = $callback;
     }
-    public function dispatch(): void {
-        $uri = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
-        if (strpos($uri, '/public/') === 0) {
-            $uri = substr($uri, 7);
-            if ($uri === '' || $uri === false) $uri = '/';
-        }
-        if (preg_match('/index\.php$/', $uri)) {
-            $uri = '/';
-        }
-        $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
-        $open = array(
-            array('GET','/login'),
-            array('POST','/login'),
-            array('GET','/register'),
-            array('POST','/register'),
-        );
-        $isOpen = false;
-        foreach ($open as $o) {
-            if ($o[0] === $method && $o[1] === $uri) {
-                $isOpen = true;
-                break;
+
+    public function post($path, $callback) {
+        $this->routes['POST'][$path] = $callback;
+    }
+
+    public function resolve() {
+        $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+        $method = $_SERVER['REQUEST_METHOD'];
+
+        // Simple regex matching for dynamic routes
+        foreach ($this->routes[$method] as $route => $callback) {
+            // Convert route like /sets/{id} to regex /sets/([^/]+)
+            $pattern = preg_replace('/\{[a-zA-Z0-9_]+\}/', '([^/]+)', $route);
+            if (preg_match("#^$pattern$#", $path, $matches)) {
+                array_shift($matches); // Remove full match
+                
+                // Callback is [ControllerClass, MethodName]
+                $controller = new $callback[0]();
+                $action = $callback[1];
+                
+                return call_user_func_array([$controller, $action], $matches);
             }
         }
-        if (!$isOpen) \App\Core\Security::requireLogin();
-        foreach ($this->routes as $route) {
-            $m = $route[0];
-            $p = $route[1];
-            $h = $route[2];
-            if ($m !== $method) continue;
-            if ($p === $uri) {
-                $this->invoke($h);
-                return;
-            }
-        }
+
+        // Fallback for exact matches if regex didn't catch (or if I implemented it poorly)
+        // Actually, the above loop handles exact matches too if no params.
+        
         http_response_code(404);
-        echo 'not found';
-    }
-    private function invoke($handler): void {
-        if (is_array($handler)) {
-            $class = $handler[0];
-            $method = $handler[1];
-            $obj = new $class();
-            $obj->$method();
-        } else {
-            $handler();
-        }
+        echo "404 Not Found";
     }
 }
