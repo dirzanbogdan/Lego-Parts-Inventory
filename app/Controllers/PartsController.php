@@ -6,7 +6,7 @@ use App\Core\Controller;
 use App\Models\Part;
 
 class PartsController extends Controller {
-    public function view($part_num) {
+    public function show($part_num) {
         $part = Part::find($part_num);
         if (!$part) {
             header("HTTP/1.0 404 Not Found");

@@ -22,7 +22,7 @@ class SetsController extends Controller {
         ]);
     }
 
-    public function view($set_num) {
+    public function show($set_num) {
         $set = Set::find($set_num);
         if (!$set) {
             header("HTTP/1.0 404 Not Found");
