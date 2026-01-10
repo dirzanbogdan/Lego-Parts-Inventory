@@ -53,10 +53,15 @@ class ImportService {
 
         $count = 0;
         while (($row = fgetcsv($handle)) !== false) {
-            // Map row to columns based on CSV header (assuming standard order or matching count)
-            // Rebrickable CSVs usually match the order, but we should be careful.
-            // For now, assuming strict column order mapping.
+            // Rebrickable CSVs often have extra columns that we don't need (like num_parts in colors)
+            // We need to slice the row to match the number of columns we expect, OR map them by index.
+            // Assuming the CSV columns match the order of our columns array, but the CSV might have MORE columns at the end.
             
+            // Limit row to the number of expected columns
+            if (count($row) > count($columns)) {
+                $row = array_slice($row, 0, count($columns));
+            }
+
             // Handle booleans (t/f to 1/0)
             foreach ($row as &$val) {
                 if ($val === 't' || $val === 'True') $val = 1;

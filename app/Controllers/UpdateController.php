@@ -16,7 +16,7 @@ class UpdateController extends Controller {
         $remoteHash = trim(explode("\t", trim($remote))[0] ?? '');
         $localShort = $local ? substr($local, -7) : '';
         $remoteShort = ($remoteHash && $remoteHash !== $local) ? substr($remoteHash, -7) : '';
-        $this->render('admin/update', [
+        $this->view('admin/update', [
             'local' => $local,
             'remote' => $remoteHash,
             'local_short' => $localShort,
@@ -63,7 +63,7 @@ class UpdateController extends Controller {
         $remoteHash = trim(explode("\t", trim($this->cmd('git ls-remote origin HEAD')))[0] ?? '');
         $localShort = $after ? substr($after, -7) : '';
         $remoteShort = ($remoteHash && $remoteHash !== $after) ? substr($remoteHash, -7) : '';
-        $this->render('admin/update', [
+        $this->view('admin/update', [
             'local' => $after,
             'remote' => $remoteHash,
             'local_short' => $localShort,
@@ -102,7 +102,7 @@ class UpdateController extends Controller {
         $remoteHash = trim(explode("\t", trim($this->cmd('git ls-remote origin HEAD')))[0] ?? '');
         $localShort = $local ? substr($local, -7) : '';
         $remoteShort = ($remoteHash && $remoteHash !== $local) ? substr($remoteHash, -7) : '';
-        $this->render('admin/update', [
+        $this->view('admin/update', [
             'local' => $local,
             'remote' => $remoteHash,
             'local_short' => $localShort,
