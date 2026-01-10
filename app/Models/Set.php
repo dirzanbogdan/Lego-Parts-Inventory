@@ -45,26 +45,18 @@ class Set {
 
     public function getInventory(): array {
         $pdo = Config::db();
-        // Get the latest inventory version for this set
-        $sql = "
-            SELECT ip.*, p.name as part_name, c.name as color_name, c.rgb
-            FROM inventories i
-            JOIN inventory_parts ip ON i.id = ip.inventory_id
-            JOIN parts p ON ip.part_num = p.part_num
-            JOIN colors c ON ip.color_id = c.id
-            WHERE i.set_num = ?
-            ORDER BY i.version DESC
-            LIMIT 1000
-        "; 
-        // Note: Logic for 'latest version' might need refinement if multiple inventories exist.
-        // Usually, we pick the one with highest version.
-        // But strict SQL requires subquery.
         
         $sql = "
-            SELECT ip.*, p.name as part_name, c.name as color_name, c.rgb
+            SELECT 
+                ip.*, 
+                p.name as part_name, 
+                c.name as color_name, 
+                c.rgb,
+                COALESCE(up.quantity, 0) as user_quantity
             FROM inventory_parts ip
             JOIN parts p ON ip.part_num = p.part_num
             JOIN colors c ON ip.color_id = c.id
+            LEFT JOIN user_parts up ON (up.part_num = ip.part_num AND up.color_id = ip.color_id AND up.user_id = 1)
             WHERE ip.inventory_id = (
                 SELECT id FROM inventories WHERE set_num = ? ORDER BY version DESC LIMIT 1
             )

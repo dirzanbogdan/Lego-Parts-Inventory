@@ -20,17 +20,19 @@
             <th>Color</th>
             <th>Part Name</th>
             <th>Qty</th>
+            <th>Owned</th>
             <th>Spare</th>
         </tr>
     </thead>
     <tbody>
         <?php foreach ($inventory as $item): ?>
-        <tr>
+        <tr class="<?= ($item['user_quantity'] >= $item['quantity']) ? 'table-success' : '' ?>">
             <td>
-                <img src="/images/parts/parts_<?= $item['color_id'] ?>/<?= $item['part_num'] ?>.png" 
+                <img src="/parts_images/parts_<?= $item['color_id'] ?>/<?= $item['part_num'] ?>.png" 
                      class="part-img" 
                      alt="Part Image"
-                     onerror="this.src='/images/no-image.png'">
+                     onerror="this.src='/images/no-image.png'"
+                     style="max-width: 50px;">
             </td>
             <td><a href="/parts/<?= $item['part_num'] ?>"><?= $item['part_num'] ?></a></td>
             <td>
@@ -40,6 +42,12 @@
             </td>
             <td><?= htmlspecialchars($item['part_name']) ?></td>
             <td><?= $item['quantity'] ?></td>
+            <td>
+                <?= $item['user_quantity'] ?>
+                <?php if ($item['user_quantity'] < $item['quantity']): ?>
+                    <span class="text-danger">(-<?= $item['quantity'] - $item['user_quantity'] ?>)</span>
+                <?php endif; ?>
+            </td>
             <td><?= $item['is_spare'] ? 'Yes' : 'No' ?></td>
         </tr>
         <?php endforeach; ?>
