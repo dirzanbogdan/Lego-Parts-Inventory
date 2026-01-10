@@ -6,3 +6,4 @@ public/images/parts
 *.csv
 *.zip
 *.gz
+db_config.php
