@@ -18,8 +18,6 @@ $router->post('/parts/update', [PartsController::class, 'update']);
 
 $router->get('/admin/update', [UpdateController::class, 'page']);
 $router->post('/admin/update/backup', [UpdateController::class, 'backup']);
-$router->post('/admin/update/apply', [UpdateController::class, 'apply']);
-$router->post('/admin/update/cleardb', [UpdateController::class, 'clearDb']);
-$router->post('/admin/update/schema', [UpdateController::class, 'verifySchema']);
+$router->post('/admin/update/pull', [UpdateController::class, 'gitPull']);
 
 $router->resolve();

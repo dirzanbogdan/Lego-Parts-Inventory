@@ -3,7 +3,6 @@ declare(strict_types=1);
 namespace App\Controllers;
 use App\Core\Controller;
 use App\Core\Security;
-use App\Core\Migrator;
 use App\Config\Config;
 use PDO;
 class UpdateController extends Controller {
@@ -23,8 +22,34 @@ class UpdateController extends Controller {
             'remote_short' => $remoteShort,
             'status' => $status,
             'last_backup' => $this->lastBackupPath(),
-            'clear_report' => null,
-            'schema_report' => null,
+            'csrf' => Security::csrfToken(),
+        ]);
+    }
+    public function gitPull(): void {
+        $this->requirePost();
+        // Security::requireRole('admin');
+        if (!\App\Core\Security::verifyCsrf($_POST['csrf'] ?? null)) {
+            http_response_code(400);
+            echo 'bad request';
+            return;
+        }
+        $before = trim($this->cmd('git rev-parse HEAD'));
+        $pull = $this->cmd('git pull 2>&1');
+        $after = trim($this->cmd('git rev-parse HEAD'));
+        $remoteHash = trim(explode("\t", trim($this->cmd('git ls-remote origin HEAD')))[0] ?? '');
+        $localShort = $after ? substr($after, -7) : '';
+        $remoteShort = ($remoteHash && $remoteHash !== $after) ? substr($remoteHash, -7) : '';
+        
+        $this->view('admin/update', [
+            'local' => $after,
+            'remote' => $remoteHash,
+            'local_short' => $localShort,
+            'remote_short' => $remoteShort,
+            'status' => $this->cmd('git status -sb'),
+            'last_backup' => $this->lastBackupPath(),
+            'pull_log' => $pull,
+            'before' => $before,
+            'after' => $after,
             'csrf' => Security::csrfToken(),
         ]);
     }
@@ -48,134 +73,6 @@ class UpdateController extends Controller {
             http_response_code(500);
             echo 'backup failed';
         }
-    }
-    public function apply(): void {
-        $this->requirePost();
-        // Security::requireRole('admin');
-        if (!\App\Core\Security::verifyCsrf($_POST['csrf'] ?? null)) {
-            http_response_code(400);
-            echo 'bad request';
-            return;
-        }
-        $before = trim($this->cmd('git rev-parse HEAD'));
-        $pull = $this->cmd('git pull 2>&1');
-        try {
-            $migrations = Migrator::applyAll();
-        } catch (\Throwable $e) {
-            $migrations = ['applied' => [], 'skipped' => [], 'error' => $e->getMessage()];
-        }
-        $after = trim($this->cmd('git rev-parse HEAD'));
-        $remoteHash = trim(explode("\t", trim($this->cmd('git ls-remote origin HEAD')))[0] ?? '');
-        $localShort = $after ? substr($after, -7) : '';
-        $remoteShort = ($remoteHash && $remoteHash !== $after) ? substr($remoteHash, -7) : '';
-        $this->view('admin/update', [
-            'local' => $after,
-            'remote' => $remoteHash,
-            'local_short' => $localShort,
-            'remote_short' => $remoteShort,
-            'status' => $this->cmd('git status -sb'),
-            'last_backup' => $this->lastBackupPath(),
-            'pull_log' => $pull,
-            'before' => $before,
-            'after' => $after,
-            'migrations' => $migrations,
-            'clear_report' => null,
-            'schema_report' => null,
-        ]);
-    }
-    public function clearDb(): void {
-        $this->requirePost();
-        // Security::requireRole('admin');
-        if (!\App\Core\Security::verifyCsrf($_POST['csrf'] ?? null)) {
-            http_response_code(400);
-            echo 'bad request';
-            return;
-        }
-        $pdo = Config::db();
-        // Updated table list to match actual schema
-        $tables = ['inventory_parts','inventories','minifigs','sets','elements','part_relationships','parts','part_categories','colors','themes'];
-        $existing = [];
-        $pdo->exec('SET FOREIGN_KEY_CHECKS=0');
-        foreach ($tables as $t) {
-            try {
-                $pdo->exec('TRUNCATE TABLE ' . $t);
-                $existing[] = $t;
-            } catch (\Throwable $e) {
-            }
-        }
-        $pdo->exec('SET FOREIGN_KEY_CHECKS=1');
-        $local = trim($this->cmd('git rev-parse HEAD'));
-        $remoteHash = trim(explode("\t", trim($this->cmd('git ls-remote origin HEAD')))[0] ?? '');
-        $localShort = $local ? substr($local, -7) : '';
-        $remoteShort = ($remoteHash && $remoteHash !== $local) ? substr($remoteHash, -7) : '';
-        $this->view('admin/update', [
-            'local' => $local,
-            'remote' => $remoteHash,
-            'local_short' => $localShort,
-            'remote_short' => $remoteShort,
-            'status' => $this->cmd('git status -sb'),
-            'last_backup' => $this->lastBackupPath(),
-            'clear_report' => ['cleared' => $existing],
-            'schema_report' => null,
-        ]);
-    }
-    public function verifySchema(): void {
-        $this->requirePost();
-        // Security::requireRole('admin');
-        if (!\App\Core\Security::verifyCsrf($_POST['csrf'] ?? null)) {
-            http_response_code(400);
-            echo 'bad request';
-            return;
-        }
-        $pdo = Config::db();
-        $expected = [
-            'users' => ['username','password_hash','role','created_at'],
-            'categories' => ['name'],
-            'parts' => ['name','part_code','version','category_id','image_url','bricklink_url','years_released','weight','stud_dimensions','package_dimensions','no_of_parts','related_items'],
-            'colors' => ['color_name','color_code'],
-            'part_colors' => ['part_id','color_id','quantity_in_inventory','condition_state','purchase_price'],
-            'inventory_history' => ['part_id','color_id','delta','reason','user_id','created_at'],
-            'sets' => ['set_name','set_code','type','year','image','instructions_url'],
-            'set_parts' => ['set_id','part_id','color_id','quantity'],
-            'entity_history' => ['entity_type','entity_id','user_id','changes','created_at'],
-            'part_parts' => ['parent_part_id','child_part_id','quantity'],
-            'migrations' => ['filename','applied_at'],
-        ];
-        $report = ['missing_tables' => [], 'missing_columns' => [], 'ok_tables' => []];
-        foreach ($expected as $table => $cols) {
-            try {
-                $st = $pdo->query('SHOW COLUMNS FROM ' . $table);
-                $rows = $st ? $st->fetchAll(PDO::FETCH_ASSOC) : [];
-                if (!$rows) {
-                    $report['missing_tables'][] = $table;
-                    continue;
-                }
-                $present = array_map(function($r){return $r['Field'] ?? '';}, $rows);
-                $missing = array_values(array_diff($cols, $present));
-                if (!empty($missing)) {
-                    $report['missing_columns'][] = ['table' => $table, 'columns' => $missing];
-                } else {
-                    $report['ok_tables'][] = $table;
-                }
-            } catch (\Throwable $e) {
-                $report['missing_tables'][] = $table;
-            }
-        }
-        $local = trim($this->cmd('git rev-parse HEAD'));
-        $remoteHash = trim(explode("\t", trim($this->cmd('git ls-remote origin HEAD')))[0] ?? '');
-        $localShort = $local ? substr($local, -7) : '';
-        $remoteShort = ($remoteHash && $remoteHash !== $local) ? substr($remoteHash, -7) : '';
-        $this->view('admin/update', [
-            'local' => $local,
-            'remote' => $remoteHash,
-            'local_short' => $localShort,
-            'remote_short' => $remoteShort,
-            'status' => $this->cmd('git status -sb'),
-            'last_backup' => $this->lastBackupPath(),
-            'clear_report' => null,
-            'schema_report' => $report,
-            'csrf' => Security::csrfToken(),
-        ]);
     }
     private function cmd(string $command): string {
         if (!function_exists('shell_exec')) return '';
