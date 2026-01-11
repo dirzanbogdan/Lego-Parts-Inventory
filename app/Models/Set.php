@@ -14,37 +14,41 @@ class Set {
     public $img_url;
     public $theme_name;
 
-    public static function findAll(int $limit = 50, int $offset = 0): array {
+    public static function findAll(int $limit = 50, int $offset = 0, ?int $theme_id = null): array {
         $pdo = Config::db();
-        $stmt = $pdo->prepare("
+        $sql = "
             SELECT s.*, t.name as theme_name 
             FROM sets s 
             LEFT JOIN themes t ON s.theme_id = t.id 
-            ORDER BY s.year DESC, s.name ASC 
-            LIMIT ? OFFSET ?
-        ");
-        $stmt->bindValue(1, $limit, PDO::PARAM_INT);
-        $stmt->bindValue(2, $offset, PDO::PARAM_INT);
-        $stmt->execute();
+            WHERE 1=1 
+        ";
+        
+        $params = [];
+        if ($theme_id !== null) {
+            $sql .= " AND s.theme_id = ? ";
+            $params[] = $theme_id;
+        }
+        
+        $sql .= " ORDER BY s.year DESC, s.name ASC LIMIT ? OFFSET ?";
+        $params[] = $limit;
+        $params[] = $offset;
+
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute($params);
         return $stmt->fetchAll(PDO::FETCH_CLASS, self::class);
     }
 
-    public static function find(string $set_num): ?self {
+    public static function count(?int $theme_id = null): int {
         $pdo = Config::db();
-        $stmt = $pdo->prepare("
-            SELECT s.*, t.name as theme_name 
-            FROM sets s 
-            LEFT JOIN themes t ON s.theme_id = t.id 
-            WHERE s.set_num = ?
-        ");
-        $stmt->execute([$set_num]);
-        $stmt->setFetchMode(PDO::FETCH_CLASS, self::class);
-        return $stmt->fetch() ?: null;
-    }
-
-    public static function count(): int {
-        $pdo = Config::db();
-        return (int)$pdo->query("SELECT COUNT(*) FROM sets")->fetchColumn();
+        $sql = "SELECT COUNT(*) FROM sets WHERE 1=1";
+        $params = [];
+        if ($theme_id !== null) {
+            $sql .= " AND theme_id = ?";
+            $params[] = $theme_id;
+        }
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute($params);
+        return (int)$stmt->fetchColumn();
     }
 
     public static function search(string $query): array {

@@ -53,6 +53,107 @@ class UpdateController extends Controller {
             'csrf' => Security::csrfToken(),
         ]);
     }
+
+    public function scanImages(): void {
+        $this->requirePost();
+        if (!\App\Core\Security::verifyCsrf($_POST['csrf'] ?? null)) {
+            http_response_code(400);
+            echo 'bad request';
+            return;
+        }
+
+        set_time_limit(0);
+        $pdo = Config::db();
+        $log = [];
+
+        // 1. Ensure columns exist
+        $this->ensureColumnExists($pdo, 'parts', 'img_url');
+        $this->ensureColumnExists($pdo, 'themes', 'img_url');
+        $this->ensureColumnExists($pdo, 'sets', 'img_url');
+        
+        $log[] = "Schema verified (img_url columns checked).";
+
+        // 2. Scan Parts
+        $partsDir = __DIR__ . '/../../public/images/parts';
+        if (is_dir($partsDir)) {
+            $count = $this->scanAndLink($pdo, $partsDir, 'parts', 'part_num');
+            $log[] = "Parts: Linked $count local images.";
+        } else {
+            $log[] = "Parts: Directory not found ($partsDir).";
+        }
+
+        // 3. Scan Themes
+        $themesDir = __DIR__ . '/../../public/images/themes';
+        if (is_dir($themesDir)) {
+            $count = $this->scanAndLink($pdo, $themesDir, 'themes', 'id');
+            $log[] = "Themes: Linked $count local images.";
+        } else {
+            $log[] = "Themes: Directory not found ($themesDir).";
+        }
+
+        // 4. Scan Sets
+        $setsDir = __DIR__ . '/../../public/images/sets';
+        if (is_dir($setsDir)) {
+            $count = $this->scanAndLink($pdo, $setsDir, 'sets', 'set_num', 'img_url'); // sets usually have img_url already
+            $log[] = "Sets: Linked $count local images.";
+        } else {
+            $log[] = "Sets: Directory not found ($setsDir).";
+        }
+
+        // Return view with log
+        $this->view('admin/update', [
+            'scan_log' => implode("\n", $log),
+            'csrf' => Security::csrfToken(),
+            // Pass minimal other vars to avoid undefined variable errors in view
+            'local' => '', 'remote' => '', 'local_short' => '', 'remote_short' => '', 'status' => '', 'last_backup' => '' 
+        ]);
+    }
+
+    private function ensureColumnExists(PDO $pdo, string $table, string $column): void {
+        try {
+            $stmt = $pdo->query("SHOW COLUMNS FROM $table LIKE '$column'");
+            if ($stmt->rowCount() === 0) {
+                $pdo->exec("ALTER TABLE $table ADD COLUMN $column VARCHAR(255)");
+            }
+        } catch (\Exception $e) {
+            // SQLite syntax might differ, attempt standard SQL or ignore if generic
+            // For SQLite: PRAGMA table_info(table)
+            // But usually ALTER TABLE ADD COLUMN is supported in SQLite too
+            try {
+                 $pdo->exec("ALTER TABLE $table ADD COLUMN $column VARCHAR(255)");
+            } catch (\Exception $e2) {
+                // Ignore if exists or error
+            }
+        }
+    }
+
+    private function scanAndLink(PDO $pdo, string $baseDir, string $table, string $idCol, string $urlCol = 'img_url'): int {
+        $iterator = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($baseDir));
+        $count = 0;
+        $stmt = $pdo->prepare("UPDATE $table SET $urlCol = ? WHERE $idCol = ?");
+
+        foreach ($iterator as $file) {
+            if ($file->isFile()) {
+                $ext = strtolower($file->getExtension());
+                if (in_array($ext, ['jpg', 'jpeg', 'png', 'gif', 'webp'])) {
+                    $filename = $file->getBasename('.' . $file->getExtension());
+                    // For parts, filename is the part_num (e.g. u8004b)
+                    // Construct relative path
+                    $fullPath = $file->getPathname();
+                    // Rel path from public
+                    $relPath = '/images/' . str_replace('\\', '/', substr($fullPath, strpos($fullPath, 'images') + 7));
+                    
+                    // Update DB
+                    $stmt->execute([$relPath, $filename]);
+                    if ($stmt->rowCount() > 0) {
+                        $count++;
+                    }
+                }
+            }
+        }
+        return $count;
+    }
+
     public function backup(): void {
         $this->requirePost();
         // Security::requireRole('admin');

@@ -37,3 +37,11 @@
   <input type="hidden" name="csrf" value="<?php echo htmlspecialchars($csrf); ?>">
   <button type="submit">Ruleaza git pull</button>
 </form>
+
+<h3>Scanare Imagini Locale</h3>
+<p>Aceasta optiune va scana folderul <code>public/images</code> si va actualiza baza de date cu link-urile catre imaginile gasite (Parts, Sets, Themes).</p>
+<?php if (!empty($scan_log)): ?><pre><?php echo htmlspecialchars($scan_log); ?></pre><?php endif; ?>
+<form method="post" action="/admin/update/scan-images">
+  <input type="hidden" name="csrf" value="<?php echo htmlspecialchars($csrf); ?>">
+  <button type="submit">Scaneaza si Linkeaza Imagini</button>
+</form>

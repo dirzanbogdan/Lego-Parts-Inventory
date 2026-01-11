@@ -22,5 +22,6 @@ $router->get('/themes', [ThemesController::class, 'index']);
 $router->get('/admin/update', [UpdateController::class, 'page']);
 $router->post('/admin/update/backup', [UpdateController::class, 'backup']);
 $router->post('/admin/update/pull', [UpdateController::class, 'gitPull']);
+$router->post('/admin/update/scan-images', [UpdateController::class, 'scanImages']);
 
 $router->resolve();
