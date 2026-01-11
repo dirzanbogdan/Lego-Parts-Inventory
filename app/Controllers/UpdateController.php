@@ -87,7 +87,8 @@ class UpdateController extends Controller {
             return;
         }
         $pdo = Config::db();
-        $tables = ['set_parts','inventory_history','part_colors','entity_history','part_parts','sets','parts','categories','colors','favorites'];
+        // Updated table list to match actual schema
+        $tables = ['inventory_parts','inventories','minifigs','sets','elements','part_relationships','parts','part_categories','colors','themes'];
         $existing = [];
         $pdo->exec('SET FOREIGN_KEY_CHECKS=0');
         foreach ($tables as $t) {
