@@ -198,7 +198,13 @@ class UpdateController extends Controller {
             if (!$fh) return false;
             fwrite($fh, "SET FOREIGN_KEY_CHECKS=0;\n");
             foreach ($tables as $t) {
-                $rs = $pdo->query('SELECT * FROM `' . str_replace('`','',$t) . '`');
+                // Skip if table doesn't exist
+                try {
+                    $rs = $pdo->query('SELECT * FROM `' . str_replace('`','',$t) . '`');
+                } catch (\Throwable $e) {
+                    continue;
+                }
+                
                 $cols = [];
                 for ($i=0; $i<$rs->columnCount(); $i++) {
                     $meta = $rs->getColumnMeta($i);
@@ -217,6 +223,8 @@ class UpdateController extends Controller {
             fclose($fh);
             return true;
         } catch (\Throwable $e) {
+            // Log error if needed
+            error_log("Backup error: " . $e->getMessage());
             return false;
         }
     }
