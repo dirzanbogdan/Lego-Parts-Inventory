@@ -24,6 +24,31 @@
   <p>Inainte: <?php echo htmlspecialchars($before ?? ''); ?> • Dupa: <?php echo htmlspecialchars($after ?? ''); ?></p>
   <?php if (!empty($pull_log)): ?><pre><?php echo htmlspecialchars($pull_log); ?></pre><?php endif; ?>
 <?php endif; ?>
+
+<?php if (!empty($migrations)): ?>
+  <div class="card">
+    <strong>Raport Migrari</strong>
+    <?php if (!empty($migrations['error'])): ?>
+      <div style="color:#b91c1c; margin-top:5px;"><strong>Eroare fatala:</strong> <?php echo htmlspecialchars($migrations['error']); ?></div>
+    <?php endif; ?>
+    <?php if (!empty($migrations['applied'])): ?>
+      <div style="color:#166534; margin-top:5px;">Aplicat cu succes:</div>
+      <ul style="margin:5px 0 0 20px; padding:0">
+        <?php foreach ($migrations['applied'] as $m): ?>
+          <li><?php echo htmlspecialchars($m); ?></li>
+        <?php endforeach; ?>
+      </ul>
+    <?php elseif (empty($migrations['error'])): ?>
+      <div style="color:#555; margin-top:5px;">Nicio migrare noua aplicata.</div>
+    <?php endif; ?>
+    <?php if (!empty($migrations['skipped'])): ?>
+      <div style="color:#777; font-size:0.9em; margin-top:5px;">
+        (<?php echo count($migrations['skipped']); ?> migrari deja existente sarite)
+      </div>
+    <?php endif; ?>
+  </div>
+<?php endif; ?>
+
 <h3>Backup DB</h3>
 <?php if (!empty($last_backup)): ?><p>Ultimul backup: <a href="<?php echo htmlspecialchars($last_backup); ?>" target="_blank"><?php echo htmlspecialchars($last_backup); ?></a></p><?php endif; ?>
 <form method="post" action="/admin/update/backup">

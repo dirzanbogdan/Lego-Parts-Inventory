@@ -58,7 +58,11 @@ class UpdateController extends Controller {
         }
         $before = trim($this->cmd('git rev-parse HEAD'));
         $pull = $this->cmd('git pull 2>&1');
-        $migrations = Migrator::applyAll();
+        try {
+            $migrations = Migrator::applyAll();
+        } catch (\Throwable $e) {
+            $migrations = ['applied' => [], 'skipped' => [], 'error' => $e->getMessage()];
+        }
         $after = trim($this->cmd('git rev-parse HEAD'));
         $remoteHash = trim(explode("\t", trim($this->cmd('git ls-remote origin HEAD')))[0] ?? '');
         $localShort = $after ? substr($after, -7) : '';
