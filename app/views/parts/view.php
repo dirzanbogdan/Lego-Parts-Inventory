@@ -7,10 +7,10 @@
     <?php foreach ($colors as $color): ?>
     <div class="col-md-3 col-6 mb-4 text-center">
         <div class="card h-100">
-            <img src="/parts_images/parts_<?= $color['id'] ?>/<?= $part->part_num ?>.png" 
+            <img src="<?= !empty($color['generic_img_url']) ? htmlspecialchars($color['generic_img_url']) : (!empty($color['img_url']) ? $color['img_url'] : '/images/no-image.png') ?>" 
                  class="card-img-top part-img mx-auto mt-2" 
                  alt="<?= htmlspecialchars($color['name']) ?>"
-                 onerror="this.onerror=null; this.src='<?= !empty($color['img_url']) ? $color['img_url'] : '/images/no-image.png' ?>';"
+                 onerror="this.onerror=null; this.src='/images/no-image.png';"
                  style="max-width: 100px;">
             <div class="card-body p-2">
                 <h6 class="card-title"><?= htmlspecialchars($color['name']) ?></h6>

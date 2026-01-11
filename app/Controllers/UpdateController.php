@@ -119,30 +119,16 @@ class UpdateController extends Controller {
     private function findBestImagesDir(array &$log): ?string {
         $candidates = [
             __DIR__ . '/../../public/images',
-            __DIR__ . '/../../images',
-            __DIR__ . '/../../parts and sets', // specific user folder
-            __DIR__ . '/../public/images',
+            $_SERVER['DOCUMENT_ROOT'] . '/public/images',
             $_SERVER['DOCUMENT_ROOT'] . '/images',
-            $_SERVER['DOCUMENT_ROOT'] . '/public/images'
+            __DIR__ . '/../../images',
         ];
 
-        // First pass: look for directory containing expected subfolders
         foreach ($candidates as $path) {
             if (is_dir($path)) {
                 $real = realpath($path);
-                if ($this->hasSubDirs($real)) {
-                    $log[] = "Found candidate with subdirs: $real";
-                    return $real;
-                } else {
-                    $log[] = "Checked $real: exists but missing subdirs (parts/themes/sets)";
-                }
-            }
-        }
-
-        // Second pass: just return first existing directory (fallback)
-        foreach ($candidates as $path) {
-            if (is_dir($path)) {
-                return realpath($path);
+                $log[] = "Found directory: $real";
+                return $real;
             }
         }
         return null;
@@ -275,6 +261,48 @@ class UpdateController extends Controller {
             $st = $pdo->query('SHOW TABLES');
             while ($row = $st->fetch(PDO::FETCH_NUM)) $tables[] = $row[0];
             $fh = fopen($path, 'w');
+            if (!$fh) return false;
+            fwrite($fh, "SET FOREIGN_KEY_CHECKS=0;\n");
+            foreach ($tables as $t) {
+                // Skip if table doesn't exist
+                try {
+                    $rs = $pdo->query('SELECT * FROM `' . str_replace('`','',$t) . '`');
+                } catch (\Throwable $e) {
+                    continue;
+                }
+                
+                $cols = [];
+                for ($i=0; $i<$rs->columnCount(); $i++) {
+                    $meta = $rs->getColumnMeta($i);
+                    $cols[] = '`' . $meta['name'] . '`';
+                }
+                while ($row = $rs->fetch(PDO::FETCH_NUM)) {
+                    $vals = array_map(function($v) use ($pdo){
+                        if ($v === null) return 'NULL';
+                        return $pdo->quote((string)$v);
+                    }, $row);
+                    $sql = 'INSERT INTO `' . $t . '` (' . implode(',', $cols) . ') VALUES (' . implode(',', $vals) . ');' . "\n";
+                    fwrite($fh, $sql);
+                }
+            }
+            fwrite($fh, "SET FOREIGN_KEY_CHECKS=1;\n");
+            fclose($fh);
+            return true;
+        } catch (\Throwable $e) {
+            // Log error if needed
+            error_log("Backup error: " . $e->getMessage());
+            return false;
+        }
+    }
+    private function lastBackupPath(): ?string {
+        $dir = __DIR__ . '/../../backups';
+        if (!is_dir($dir)) return null;
+        $files = array_values(array_filter(scandir($dir) ?: [], function($f){return preg_match('/\\.sql$/', $f);} ));
+        if (!$files) return null;
+        rsort($files);
+        return '/backups/' . $files[0];
+    }
+}
             if (!$fh) return false;
             fwrite($fh, "SET FOREIGN_KEY_CHECKS=0;\n");
             foreach ($tables as $t) {
