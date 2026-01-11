@@ -1,5 +1,5 @@
 <?php
-require_once __DIR__ . '/../app/autoload.php';
+require_once __DIR__ . '/../app/bootstrap.php';
 
 use App\Core\Router;
 use App\Controllers\HomeController;
