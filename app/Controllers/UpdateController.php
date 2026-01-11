@@ -74,30 +74,38 @@ class UpdateController extends Controller {
         $log[] = "Schema verified (img_url columns checked).";
 
         // 2. Scan Parts
-        $partsDir = __DIR__ . '/../../public/images/parts';
-        if (is_dir($partsDir)) {
-            $count = $this->scanAndLink($pdo, $partsDir, 'parts', 'part_num');
-            $log[] = "Parts: Linked $count local images.";
-        } else {
-            $log[] = "Parts: Directory not found ($partsDir).";
-        }
+        $baseImagesDir = $this->findImagesDir();
+        if ($baseImagesDir) {
+            $log[] = "Found images directory: $baseImagesDir";
+            
+            // Scan Parts
+            $partsDir = $this->findSubDir($baseImagesDir, ['parts', 'Parts']);
+            if ($partsDir) {
+                $count = $this->scanAndLink($pdo, $partsDir, 'parts', 'part_num');
+                $log[] = "Parts: Linked $count local images from $partsDir.";
+            } else {
+                $log[] = "Parts: Sub-directory 'parts' or 'Parts' not found in $baseImagesDir.";
+            }
 
-        // 3. Scan Themes
-        $themesDir = __DIR__ . '/../../public/images/themes';
-        if (is_dir($themesDir)) {
-            $count = $this->scanAndLink($pdo, $themesDir, 'themes', 'id');
-            $log[] = "Themes: Linked $count local images.";
-        } else {
-            $log[] = "Themes: Directory not found ($themesDir).";
-        }
+            // Scan Themes
+            $themesDir = $this->findSubDir($baseImagesDir, ['themes', 'Themes']);
+            if ($themesDir) {
+                $count = $this->scanAndLink($pdo, $themesDir, 'themes', 'id');
+                $log[] = "Themes: Linked $count local images from $themesDir.";
+            } else {
+                $log[] = "Themes: Sub-directory 'themes' or 'Themes' not found in $baseImagesDir.";
+            }
 
-        // 4. Scan Sets
-        $setsDir = __DIR__ . '/../../public/images/sets';
-        if (is_dir($setsDir)) {
-            $count = $this->scanAndLink($pdo, $setsDir, 'sets', 'set_num', 'img_url'); // sets usually have img_url already
-            $log[] = "Sets: Linked $count local images.";
+            // Scan Sets
+            $setsDir = $this->findSubDir($baseImagesDir, ['sets', 'Sets']);
+            if ($setsDir) {
+                $count = $this->scanAndLink($pdo, $setsDir, 'sets', 'set_num', 'img_url');
+                $log[] = "Sets: Linked $count local images from $setsDir.";
+            } else {
+                $log[] = "Sets: Sub-directory 'sets' or 'Sets' not found in $baseImagesDir.";
+            }
         } else {
-            $log[] = "Sets: Directory not found ($setsDir).";
+            $log[] = "Error: Could not find 'images' directory. Checked: ../../public/images, ../../images, ../../public_html/images";
         }
 
         // Return view with log
@@ -107,6 +115,33 @@ class UpdateController extends Controller {
             // Pass minimal other vars to avoid undefined variable errors in view
             'local' => '', 'remote' => '', 'local_short' => '', 'remote_short' => '', 'status' => '', 'last_backup' => '' 
         ]);
+    }
+
+    private function findImagesDir(): ?string {
+        $candidates = [
+            __DIR__ . '/../../public/images',
+            __DIR__ . '/../../images',
+            __DIR__ . '/../public/images', // if app/Controllers/../public
+            $_SERVER['DOCUMENT_ROOT'] . '/images',
+            $_SERVER['DOCUMENT_ROOT'] . '/public/images'
+        ];
+
+        foreach ($candidates as $path) {
+            if (is_dir($path)) {
+                return realpath($path);
+            }
+        }
+        return null;
+    }
+
+    private function findSubDir(string $base, array $names): ?string {
+        foreach ($names as $name) {
+            $path = $base . DIRECTORY_SEPARATOR . $name;
+            if (is_dir($path)) {
+                return $path;
+            }
+        }
+        return null;
     }
 
     private function ensureColumnExists(PDO $pdo, string $table, string $column): void {
