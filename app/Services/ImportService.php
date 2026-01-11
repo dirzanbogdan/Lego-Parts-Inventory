@@ -60,6 +60,9 @@ class ImportService {
             // Limit row to the number of expected columns
             if (count($row) > count($columns)) {
                 $row = array_slice($row, 0, count($columns));
+            } elseif (count($row) < count($columns)) {
+                // Pad with nulls if columns are missing
+                $row = array_pad($row, count($columns), null);
             }
 
             // Handle booleans (t/f to 1/0)

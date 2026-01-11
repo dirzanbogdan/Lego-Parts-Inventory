@@ -70,6 +70,7 @@ class Set {
                 p.name as part_name, 
                 c.name as color_name, 
                 c.rgb,
+                ip.img_url,
                 COALESCE(up.quantity, 0) as user_quantity
             FROM inventory_parts ip
             JOIN parts p ON ip.part_num = p.part_num

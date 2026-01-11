@@ -31,11 +31,12 @@ class Part {
         // Find which colors this part exists in (via inventory_parts)
         $pdo = Config::db();
         $sql = "
-            SELECT DISTINCT c.*, COALESCE(up.quantity, 0) as user_quantity
+            SELECT c.*, COALESCE(up.quantity, 0) as user_quantity, MAX(ip.img_url) as img_url
             FROM inventory_parts ip
             JOIN colors c ON ip.color_id = c.id
             LEFT JOIN user_parts up ON (up.part_num = ip.part_num AND up.color_id = ip.color_id AND up.user_id = 1)
             WHERE ip.part_num = ?
+            GROUP BY c.id
             ORDER BY c.name
         ";
         $stmt = $pdo->prepare($sql);
