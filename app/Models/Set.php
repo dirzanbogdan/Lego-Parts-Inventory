@@ -65,6 +65,20 @@ class Set {
         return $stmt->fetchAll(PDO::FETCH_CLASS, self::class);
     }
 
+    public static function find(string $set_num): ?self {
+        $pdo = Config::db();
+        $stmt = $pdo->prepare("
+            SELECT s.*, t.name as theme_name 
+            FROM sets s 
+            LEFT JOIN themes t ON s.theme_id = t.id 
+            WHERE s.set_num = ?
+        ");
+        $stmt->execute([$set_num]);
+        $stmt->setFetchMode(PDO::FETCH_CLASS, self::class);
+        $result = $stmt->fetch();
+        return $result ?: null;
+    }
+
     public function getInventory(): array {
         $pdo = Config::db();
         
