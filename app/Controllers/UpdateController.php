@@ -74,9 +74,9 @@ class UpdateController extends Controller {
         $log[] = "Schema verified (img_url columns checked).";
 
         // 2. Scan Parts
-        $baseImagesDir = $this->findImagesDir();
+        $baseImagesDir = $this->findBestImagesDir($log);
         if ($baseImagesDir) {
-            $log[] = "Found images directory: $baseImagesDir";
+            $log[] = "Selected images directory: $baseImagesDir";
             
             // Scan Parts
             $partsDir = $this->findSubDir($baseImagesDir, ['parts', 'Parts']);
@@ -105,32 +105,59 @@ class UpdateController extends Controller {
                 $log[] = "Sets: Sub-directory 'sets' or 'Sets' not found in $baseImagesDir.";
             }
         } else {
-            $log[] = "Error: Could not find 'images' directory. Checked: ../../public/images, ../../images, ../../public_html/images";
+            $log[] = "Error: Could not find a valid 'images' directory with content. Checked standard paths.";
         }
 
         // Return view with log
         $this->view('admin/update', [
             'scan_log' => implode("\n", $log),
             'csrf' => Security::csrfToken(),
-            // Pass minimal other vars to avoid undefined variable errors in view
             'local' => '', 'remote' => '', 'local_short' => '', 'remote_short' => '', 'status' => '', 'last_backup' => '' 
         ]);
     }
 
-    private function findImagesDir(): ?string {
+    private function findBestImagesDir(array &$log): ?string {
         $candidates = [
             __DIR__ . '/../../public/images',
             __DIR__ . '/../../images',
-            __DIR__ . '/../public/images', // if app/Controllers/../public
+            __DIR__ . '/../../parts and sets', // specific user folder
+            __DIR__ . '/../public/images',
             $_SERVER['DOCUMENT_ROOT'] . '/images',
             $_SERVER['DOCUMENT_ROOT'] . '/public/images'
         ];
 
+        // First pass: look for directory containing expected subfolders
+        foreach ($candidates as $path) {
+            if (is_dir($path)) {
+                $real = realpath($path);
+                if ($this->hasSubDirs($real)) {
+                    $log[] = "Found candidate with subdirs: $real";
+                    return $real;
+                } else {
+                    $log[] = "Checked $real: exists but missing subdirs (parts/themes/sets)";
+                }
+            }
+        }
+
+        // Second pass: just return first existing directory (fallback)
         foreach ($candidates as $path) {
             if (is_dir($path)) {
                 return realpath($path);
             }
         }
+        return null;
+    }
+
+    private function hasSubDirs(string $path): bool {
+        return (
+            is_dir($path . '/parts') || is_dir($path . '/Parts') ||
+            is_dir($path . '/themes') || is_dir($path . '/Themes') ||
+            is_dir($path . '/sets') || is_dir($path . '/Sets')
+        );
+    }
+
+    private function findImagesDir(): ?string {
+        // Deprecated, replaced by findBestImagesDir
         return null;
     }
 
@@ -167,21 +194,35 @@ class UpdateController extends Controller {
         $count = 0;
         $stmt = $pdo->prepare("UPDATE $table SET $urlCol = ? WHERE $idCol = ?");
 
+        // Normalize baseDir for string operations
+        $normBase = str_replace('\\', '/', realpath($baseDir));
+
         foreach ($iterator as $file) {
             if ($file->isFile()) {
                 $ext = strtolower($file->getExtension());
                 if (in_array($ext, ['jpg', 'jpeg', 'png', 'gif', 'webp'])) {
                     $filename = $file->getBasename('.' . $file->getExtension());
-                    // For parts, filename is the part_num (e.g. u8004b)
-                    // Construct relative path
-                    $fullPath = $file->getPathname();
-                    // Rel path from public
-                    $relPath = '/images/' . str_replace('\\', '/', substr($fullPath, strpos($fullPath, 'images') + 7));
                     
-                    // Update DB
-                    $stmt->execute([$relPath, $filename]);
-                    if ($stmt->rowCount() > 0) {
-                        $count++;
+                    $fullPath = $file->getPathname();
+                    $normFull = str_replace('\\', '/', $fullPath);
+                    
+                    // Calculate relative path from baseDir
+                    // Check if normFull starts with normBase to be safe
+                    if (strpos($normFull, $normBase) === 0) {
+                        $relFromBase = substr($normFull, strlen($normBase));
+                        // Ensure it starts with /
+                        if (substr($relFromBase, 0, 1) !== '/') {
+                            $relFromBase = '/' . $relFromBase;
+                        }
+                        
+                        // Assume the base dir maps to /images
+                        $relPath = '/images' . $relFromBase;
+                        
+                        // Update DB
+                        $stmt->execute([$relPath, $filename]);
+                        if ($stmt->rowCount() > 0) {
+                            $count++;
+                        }
                     }
                 }
             }
