@@ -5,6 +5,7 @@ use App\Core\Router;
 use App\Controllers\HomeController;
 use App\Controllers\SetsController;
 use App\Controllers\PartsController;
+use App\Controllers\ThemesController;
 use App\Controllers\UpdateController;
 
 $router = new Router();
@@ -13,8 +14,10 @@ $router->get('/', [HomeController::class, 'index']);
 $router->get('/search', [HomeController::class, 'search']);
 $router->get('/sets', [SetsController::class, 'index']);
 $router->get('/sets/{id}', [SetsController::class, 'show']);
+$router->get('/parts', [PartsController::class, 'index']);
 $router->get('/parts/{id}', [PartsController::class, 'show']);
 $router->post('/parts/update', [PartsController::class, 'update']);
+$router->get('/themes', [ThemesController::class, 'index']);
 
 $router->get('/admin/update', [UpdateController::class, 'page']);
 $router->post('/admin/update/backup', [UpdateController::class, 'backup']);

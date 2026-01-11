@@ -6,6 +6,22 @@ use App\Core\Controller;
 use App\Models\Part;
 
 class PartsController extends Controller {
+    public function index() {
+        $page = max(1, (int)($_GET['page'] ?? 1));
+        $limit = 24;
+        $offset = ($page - 1) * $limit;
+        
+        $parts = Part::findAll($limit, $offset);
+        $total = Part::count();
+        $totalPages = ceil($total / $limit);
+
+        $this->view('parts/index', [
+            'parts' => $parts,
+            'page' => $page,
+            'totalPages' => $totalPages
+        ]);
+    }
+
     public function show($part_num) {
         $part = Part::find($part_num);
         if (!$part) {

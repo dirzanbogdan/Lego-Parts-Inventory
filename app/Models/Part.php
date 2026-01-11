@@ -11,6 +11,20 @@ class Part {
     public $part_cat_id;
     public $part_material;
 
+    public static function findAll(int $limit = 50, int $offset = 0): array {
+        $pdo = Config::db();
+        $stmt = $pdo->prepare("SELECT * FROM parts ORDER BY name ASC LIMIT ? OFFSET ?");
+        $stmt->bindValue(1, $limit, PDO::PARAM_INT);
+        $stmt->bindValue(2, $offset, PDO::PARAM_INT);
+        $stmt->execute();
+        return $stmt->fetchAll(PDO::FETCH_CLASS, self::class);
+    }
+
+    public static function count(): int {
+        $pdo = Config::db();
+        return (int)$pdo->query("SELECT COUNT(*) FROM parts")->fetchColumn();
+    }
+
     public static function find(string $part_num): ?self {
         $pdo = Config::db();
         $stmt = $pdo->prepare("SELECT * FROM parts WHERE part_num = ?");
