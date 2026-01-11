@@ -25,6 +25,7 @@ class UpdateController extends Controller {
             'last_backup' => $this->lastBackupPath(),
             'clear_report' => null,
             'schema_report' => null,
+            'csrf' => Security::csrfToken(),
         ]);
     }
     public function backup(): void {
@@ -173,6 +174,7 @@ class UpdateController extends Controller {
             'last_backup' => $this->lastBackupPath(),
             'clear_report' => null,
             'schema_report' => $report,
+            'csrf' => Security::csrfToken(),
         ]);
     }
     private function cmd(string $command): string {
