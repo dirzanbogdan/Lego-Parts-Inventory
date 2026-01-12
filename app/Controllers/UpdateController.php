@@ -449,6 +449,7 @@ class UpdateController extends Controller {
         }
 
         set_time_limit(0); // Unlimited time
+        ignore_user_abort(false); // Stop script if user disconnects
         
         // Close session to release lock, allowing other requests (navigation) to proceed while this runs
         session_write_close();
@@ -652,12 +653,13 @@ class UpdateController extends Controller {
                     $updateStmt->execute([$webPath, $id]);
                 }
                 $skipped++;
-                // Update stats every 1000 skipped items to avoid flooding network stream
-                // (checking local files is very fast, so 10 was too frequent)
-                if ($isStream && $skipped % 1000 === 0) {
+                // Update stats every 100 skipped items (was 1000) to ensure we detect user aborts faster
+                // (checking local files is fast, but we need to flush output to detect disconnected client)
+                if ($isStream && $skipped % 100 === 0) {
                      $stats = json_encode(['skipped' => $skipped, 'downloaded' => $downloaded, 'failed' => $failed, 'processed' => $counter, 'total' => $total]);
                      echo "STATS:$stats\n";
                      flush();
+                     if (connection_aborted()) exit;
                 }
                 continue;
             }
@@ -736,6 +738,7 @@ class UpdateController extends Controller {
                       $stats = json_encode(['skipped' => $skipped, 'downloaded' => $downloaded, 'failed' => $failed, 'processed' => $counter, 'total' => $total]);
                       echo "STATS:$stats\n";
                       flush();
+                      if (connection_aborted()) exit;
                 }
             } else {
                 $failed++;
@@ -745,6 +748,7 @@ class UpdateController extends Controller {
                     // Always log failures
                     echo "FAILED: $id - $errorMsg\n";
                     flush();
+                    if (connection_aborted()) exit;
                 }
             }
         }
