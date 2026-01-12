@@ -450,6 +450,9 @@ class UpdateController extends Controller {
 
         set_time_limit(0); // Unlimited time
         
+        // Close session to release lock, allowing other requests (navigation) to proceed while this runs
+        session_write_close();
+        
         $type = $_POST['type'] ?? 'sets';
         
         // Detect if we should stream (check for fetch/ajax header or param)
