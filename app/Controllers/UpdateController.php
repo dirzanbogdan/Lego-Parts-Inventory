@@ -78,6 +78,16 @@ class UpdateController extends Controller {
         
         if ($baseImagesDir) {
             $log[] = "Scanning directory recursively: $baseImagesDir";
+
+            $webBase = '/images';
+            $realBase = realpath($baseImagesDir) ?: $baseImagesDir;
+            $normRealBase = str_replace('\\', '/', $realBase);
+            if (strpos($normRealBase, '/parts and sets/') !== false || strpos($normRealBase, '/parts%20and%20sets/') !== false) {
+                $webBase = '/parts_images';
+            } elseif (strpos($normRealBase, '/parts and sets') !== false) {
+                $webBase = '/parts_images';
+            }
+            $log[] = "Using web prefix: $webBase";
             
             $stats = [
                 'parts' => 0,
@@ -103,14 +113,18 @@ class UpdateController extends Controller {
             $checkTheme = $pdo->prepare("SELECT 1 FROM themes WHERE id = ? LIMIT 1");
             
             // Normalize base dir for path calculation
-            $realBase = realpath($baseImagesDir);
-            $normBase = str_replace('\\', '/', $realBase);
+            $normBase = str_replace('\\', '/', (realpath($baseImagesDir) ?: $baseImagesDir));
 
             foreach ($iterator as $file) {
                 if ($file->isFile()) {
                     $ext = strtolower($file->getExtension());
                     if (in_array($ext, ['jpg', 'jpeg', 'png', 'gif', 'webp'])) {
                         $filename = $file->getBasename('.' . $file->getExtension());
+                        $candidateIds = [$filename];
+                        $trimmed = ltrim($filename, '0');
+                        if ($trimmed !== '' && $trimmed !== $filename) {
+                            $candidateIds[] = $trimmed;
+                        }
                         
                         // Calculate relative path
                         $fullPath = $file->getPathname();
@@ -120,46 +134,57 @@ class UpdateController extends Controller {
                         // If normBase is found in normFull, replace it
                         if (strpos($normFull, $normBase) === 0) {
                             $relFromBase = substr($normFull, strlen($normBase));
-                            $relPath = '/images' . $relFromBase;
+                            $relPath = $webBase . $relFromBase;
                         } else {
                             // Fallback if path mismatch
-                            $relPath = '/images/' . $file->getFilename();
+                            $relPath = $webBase . '/' . $file->getFilename();
                         }
 
                         if ($samples < 20) {
-                            $checkPart->execute([$filename]);
-                            $hasPart = $checkPart->fetchColumn() !== false;
-                            $checkSet->execute([$filename]);
-                            $hasSet = $checkSet->fetchColumn() !== false;
+                            $hasPart = false;
+                            $hasSet = false;
                             $hasTheme = false;
-                            if (is_numeric($filename)) {
-                                $checkTheme->execute([$filename]);
-                                $hasTheme = $checkTheme->fetchColumn() !== false;
+                            foreach ($candidateIds as $cid) {
+                                $checkPart->execute([$cid]);
+                                $hasPart = $hasPart || ($checkPart->fetchColumn() !== false);
+                                $checkSet->execute([$cid]);
+                                $hasSet = $hasSet || ($checkSet->fetchColumn() !== false);
+                                if (!$hasTheme && is_numeric($cid)) {
+                                    $checkTheme->execute([$cid]);
+                                    $hasTheme = $checkTheme->fetchColumn() !== false;
+                                }
                             }
+                            $hasTheme = false;
                             $log[] = "Sample: file={$filename}, rel={$relPath}, part=" . ($hasPart ? 'Y' : 'N') . ", set=" . ($hasSet ? 'Y' : 'N') . ", theme=" . ($hasTheme ? 'Y' : 'N');
                             $samples++;
                         }
                         
                         // Try matching Part
-                        $stmtPart->execute([$relPath, $filename]);
-                        if ($stmtPart->rowCount() > 0) {
-                            $stats['parts']++;
-                            continue;
+                        foreach ($candidateIds as $cid) {
+                            $stmtPart->execute([$relPath, $cid]);
+                            if ($stmtPart->rowCount() > 0) {
+                                $stats['parts']++;
+                                continue 2;
+                            }
                         }
 
                         // Try matching Set
-                        $stmtSet->execute([$relPath, $filename]);
-                        if ($stmtSet->rowCount() > 0) {
-                            $stats['sets']++;
-                            continue;
+                        foreach ($candidateIds as $cid) {
+                            $stmtSet->execute([$relPath, $cid]);
+                            if ($stmtSet->rowCount() > 0) {
+                                $stats['sets']++;
+                                continue 2;
+                            }
                         }
 
                         // Try matching Theme (ID)
-                        if (is_numeric($filename)) {
-                            $stmtTheme->execute([$relPath, $filename]);
-                            if ($stmtTheme->rowCount() > 0) {
-                                $stats['themes']++;
-                                continue;
+                        foreach ($candidateIds as $cid) {
+                            if (is_numeric($cid)) {
+                                $stmtTheme->execute([$relPath, $cid]);
+                                if ($stmtTheme->rowCount() > 0) {
+                                    $stats['themes']++;
+                                    continue 2;
+                                }
                             }
                         }
                     }
