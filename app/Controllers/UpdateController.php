@@ -642,7 +642,8 @@ class UpdateController extends Controller {
                     $updateStmt->execute([$webPath, $id]);
                 }
                 $skipped++;
-                if ($isStream && $counter % 50 === 0) {
+                // Update stats every 10 skipped items to avoid flooding but show progress
+                if ($isStream && $skipped % 10 === 0) {
                      $stats = json_encode(['skipped' => $skipped, 'downloaded' => $downloaded, 'failed' => $failed, 'processed' => $counter, 'total' => $total]);
                      echo "STATS:$stats\n";
                      flush();
@@ -717,14 +718,16 @@ class UpdateController extends Controller {
                     $updateStmt->execute([$webPath, $id]);
                 }
                 $downloaded++;
-                if ($isStream && $counter % 50 === 0) {
-                     $stats = json_encode(['skipped' => $skipped, 'downloaded' => $downloaded, 'failed' => $failed, 'processed' => $counter, 'total' => $total]);
-                     echo "STATS:$stats\n";
-                     flush();
+                if ($isStream) {
+                      $stats = json_encode(['skipped' => $skipped, 'downloaded' => $downloaded, 'failed' => $failed, 'processed' => $counter, 'total' => $total]);
+                      echo "STATS:$stats\n";
+                      flush();
                 }
             } else {
                 $failed++;
                 if ($isStream) {
+                    $stats = json_encode(['skipped' => $skipped, 'downloaded' => $downloaded, 'failed' => $failed, 'processed' => $counter, 'total' => $total]);
+                    echo "STATS:$stats\n";
                     // Always log failures
                     echo "FAILED: $id - $errorMsg\n";
                     flush();
