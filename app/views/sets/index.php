@@ -4,7 +4,7 @@
     <div class="col-md-3 mb-4">
         <div class="card h-100">
             <div class="text-center p-3">
-                <img src="<?= htmlspecialchars($set->img_url ?? '/images/no-image.png') ?>" class="card-img-top set-img" alt="<?= htmlspecialchars($set->name) ?>" style="max-height: 150px; width: auto;" onerror="this.src='/images/no-image.png'">
+                <img src="<?= (!empty($set->img_url) && (strpos($set->img_url, '/images') === 0 || strpos($set->img_url, '/parts_images') === 0)) ? htmlspecialchars($set->img_url) : '/images/no-image.png' ?>" class="card-img-top set-img" alt="<?= htmlspecialchars($set->name) ?>" style="max-height: 150px; width: auto;" onerror="this.onerror=null; this.src='/images/no-image.png'">
             </div>
             <div class="card-body">
                 <h5 class="card-title"><?= htmlspecialchars($set->name) ?></h5>

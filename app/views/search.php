@@ -8,7 +8,7 @@
             <?php if ($type === 'sets'): ?>
                 <div class="col-md-3 mb-4">
                     <div class="card h-100">
-                        <img src="<?= $item->img_url ?>" class="card-img-top set-img" alt="<?= htmlspecialchars($item->name) ?>" onerror="this.style.display='none'">
+                        <img src="<?= (!empty($item->img_url) && (strpos($item->img_url, '/images') === 0 || strpos($item->img_url, '/parts_images') === 0)) ? htmlspecialchars($item->img_url) : '/images/no-image.png' ?>" class="card-img-top set-img" alt="<?= htmlspecialchars($item->name) ?>" onerror="this.onerror=null; this.src='/images/no-image.png';">
                         <div class="card-body">
                             <h5 class="card-title"><?= htmlspecialchars($item->name) ?></h5>
                             <p class="card-text"><?= $item->set_num ?></p>

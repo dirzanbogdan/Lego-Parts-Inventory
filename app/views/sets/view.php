@@ -1,6 +1,6 @@
 <div class="row mb-4">
-    <div class="col-md-4">
-        <img src="<?= $set->img_url ?>" class="img-fluid rounded" alt="<?= htmlspecialchars($set->name) ?>">
+    <div class="col-md-4 text-center">
+        <img src="<?= (!empty($set->img_url) && (strpos($set->img_url, '/images') === 0 || strpos($set->img_url, '/parts_images') === 0)) ? htmlspecialchars($set->img_url) : '/images/no-image.png' ?>" class="img-fluid rounded" alt="<?= htmlspecialchars($set->name) ?>" onerror="this.onerror=null; this.src='/images/no-image.png';">
     </div>
     <div class="col-md-8">
         <h1><?= htmlspecialchars($set->name) ?></h1>
@@ -33,7 +33,7 @@
             <?php foreach ($inventory as $item): ?>
             <tr class="<?= ($item['user_quantity'] >= $item['quantity']) ? 'table-success' : '' ?>">
                 <td>
-                    <img src="<?= !empty($item['generic_img_url']) ? htmlspecialchars($item['generic_img_url']) : (!empty($item['img_url']) ? $item['img_url'] : '/images/no-image.png') ?>" 
+                    <img src="<?= (!empty($item['generic_img_url']) && (strpos($item['generic_img_url'], '/images') === 0 || strpos($item['generic_img_url'], '/parts_images') === 0)) ? htmlspecialchars($item['generic_img_url']) : '/images/no-image.png' ?>" 
                          class="part-img" 
                          alt="Part Image"
                          onerror="this.onerror=null; this.src='/images/no-image.png';"

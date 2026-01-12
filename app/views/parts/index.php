@@ -4,7 +4,7 @@
     <div class="col-md-3 mb-4">
         <div class="card h-100">
             <div class="text-center p-3">
-                <img src="<?= !empty($part->img_url) ? htmlspecialchars($part->img_url) : '/images/no-image.png' ?>" 
+                <img src="<?= (!empty($part->img_url) && (strpos($part->img_url, '/images') === 0 || strpos($part->img_url, '/parts_images') === 0)) ? htmlspecialchars($part->img_url) : '/images/no-image.png' ?>" 
                      class="card-img-top part-img" 
                      alt="<?= htmlspecialchars($part->name) ?>" 
                      style="max-height: 150px; width: auto;" 

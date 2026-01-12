@@ -3,7 +3,7 @@
     <?php foreach ($sets as $set): ?>
     <div class="col-md-3 mb-4">
         <div class="card h-100">
-            <img src="<?= $set->img_url ?>" class="card-img-top set-img" alt="<?= htmlspecialchars($set->name) ?>" onerror="this.style.display='none'">
+            <img src="<?= (!empty($set->img_url) && (strpos($set->img_url, '/images') === 0 || strpos($set->img_url, '/parts_images') === 0)) ? htmlspecialchars($set->img_url) : '/images/no-image.png' ?>" class="card-img-top set-img" alt="<?= htmlspecialchars($set->name) ?>" onerror="this.onerror=null; this.src='/images/no-image.png';">
             <div class="card-body">
                 <h5 class="card-title"><?= htmlspecialchars($set->name) ?></h5>
                 <p class="card-text">
