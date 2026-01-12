@@ -571,11 +571,15 @@ class UpdateController extends Controller {
         $skipped = 0;
 
         $updateStmt = null;
+        $updatePartsGenericStmt = null; // For updating main parts table in CSV mode
+
         if ($type === 'sets') {
             $updateStmt = $pdo->prepare("UPDATE sets SET img_url = ? WHERE set_num = ?");
         } elseif ($type === 'parts') {
             if ($csvMode) {
                 $updateStmt = $pdo->prepare("UPDATE inventory_parts SET img_url = ? WHERE part_num = ? AND color_id = ?");
+                // Also update the main parts table if it doesn't have an image yet
+                $updatePartsGenericStmt = $pdo->prepare("UPDATE parts SET img_url = ? WHERE part_num = ? AND (img_url IS NULL OR img_url = '')");
             } else {
                 $updateStmt = $pdo->prepare("UPDATE parts SET img_url = ? WHERE part_num = ?");
             }
@@ -638,6 +642,9 @@ class UpdateController extends Controller {
                 // File exists, just update DB
                 if ($csvMode && $type === 'parts') {
                     $updateStmt->execute([$webPath, $id, $color_id]);
+                    if ($updatePartsGenericStmt) {
+                        $updatePartsGenericStmt->execute([$webPath, $id]);
+                    }
                 } else {
                     $updateStmt->execute([$webPath, $id]);
                 }
@@ -715,6 +722,9 @@ class UpdateController extends Controller {
                 file_put_contents($localPath, $content);
                 if ($csvMode && $type === 'parts') {
                     $updateStmt->execute([$webPath, $id, $color_id]);
+                    if ($updatePartsGenericStmt) {
+                        $updatePartsGenericStmt->execute([$webPath, $id]);
+                    }
                 } else {
                     $updateStmt->execute([$webPath, $id]);
                 }
