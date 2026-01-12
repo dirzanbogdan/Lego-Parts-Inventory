@@ -99,6 +99,11 @@
             </div>
             <div class="col">CDN: <strong><?php echo (int)$stats_sets['cdn']; ?></strong></div>
           </div>
+          <form method="post" action="/admin/update/export-debug" class="mt-3">
+            <input type="hidden" name="csrf" value="<?php echo htmlspecialchars($csrf); ?>">
+            <input type="hidden" name="type" value="sets">
+            <button type="submit" class="btn btn-warning btn-sm">Export Debug CSV (Lipsa Local)</button>
+          </form>
           <?php if (!empty($latest_debug_sets)): ?>
             <div class="mt-2">
               <a href="<?php echo htmlspecialchars($latest_debug_sets); ?>" target="_blank">Descarcă ultimul CSV Sets</a>
