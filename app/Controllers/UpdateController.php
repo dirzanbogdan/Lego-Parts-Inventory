@@ -482,20 +482,35 @@ class UpdateController extends Controller {
         }
 
         // Select items with external URL
-        $sql = "";
-        if ($type === 'sets') {
-            $sql = "SELECT set_num as id, img_url FROM sets WHERE img_url LIKE 'http%'";
-        } elseif ($type === 'parts') {
-            // For parts, we need to check both parts table and inventory_parts for images
-            // But typically parts images are in parts table or linked via colors. 
-            // Let's assume we are updating the parts table generic images first.
-            // Rebrickable often has part images like /media/parts/elements/123.jpg or /media/parts/ldraw/123.png
+            $sql = "";
+            $csvMode = false;
+            $csvPath = '';
             
-            // If we want to download images for parts that have external URLs
-            $sql = "SELECT part_num as id, img_url FROM parts WHERE img_url LIKE 'http%'";
-        } elseif ($type === 'themes') {
-            $sql = "SELECT id, img_url FROM themes WHERE img_url LIKE 'http%'";
-        } else {
+            if ($type === 'sets') {
+                $sql = "SELECT set_num as id, img_url FROM sets WHERE img_url LIKE 'http%'";
+            } elseif ($type === 'parts') {
+                // Check for local CSV first as requested by user
+                // Path: parts and sets/csv/inventory_parts.csv relative to project root
+                $projectRoot = dirname(__DIR__, 2);
+                $csvPath = $projectRoot . '/parts and sets/csv/inventory_parts.csv';
+                
+                if (file_exists($csvPath)) {
+                    $csvMode = true;
+                    if ($isStream) {
+                        echo "INFO: Found local CSV at " . basename($csvPath) . ". Processing...\n";
+                        flush();
+                    }
+                    // We don't need SQL for CSV mode initially
+                } else {
+                    // Fallback to DB if CSV not found
+                    if ($isStream) {
+                        echo "INFO: Local CSV not found. Using database records.\n";
+                    }
+                    $sql = "SELECT part_num as id, img_url FROM parts WHERE img_url LIKE 'http%'";
+                }
+            } elseif ($type === 'themes') {
+                $sql = "SELECT id, img_url FROM themes WHERE img_url LIKE 'http%'";
+            } else {
             if ($isStream) {
                 echo "ERROR: Invalid type selected.\n";
                 return;
@@ -504,11 +519,49 @@ class UpdateController extends Controller {
             return;
         }
 
-        $stmt = $pdo->query($sql);
-        $total = $stmt->rowCount();
+        $stmt = null;
+        $total = 0;
+        $csvHandle = null;
+        $idx_part = -1;
+        $idx_color = -1;
+        $idx_img = -1;
+
+        if ($csvMode) {
+            // Count lines in CSV for progress
+            $lineCount = 0;
+            $handle = fopen($csvPath, "r");
+            if ($handle) {
+                while(!feof($handle)){
+                  $line = fgets($handle);
+                  if ($line !== false) $lineCount++;
+                }
+                fclose($handle);
+            }
+            $total = max(0, $lineCount - 1); // Exclude header
+            
+            $csvHandle = fopen($csvPath, 'r');
+            if ($csvHandle !== false) {
+                $headers = fgetcsv($csvHandle);
+                if ($headers) {
+                    $idx_part = array_search('part_num', $headers);
+                    $idx_color = array_search('color_id', $headers);
+                    $idx_img = array_search('img_url', $headers);
+                }
+                
+                if ($idx_part === false || $idx_color === false || $idx_img === false) {
+                    if ($isStream) {
+                        echo "ERROR: CSV missing required columns (part_num, color_id, img_url).\n";
+                        exit;
+                    }
+                }
+            }
+        } else {
+            $stmt = $pdo->query($sql);
+            $total = $stmt->rowCount();
+        }
         
         if ($isStream) {
-            echo "INFO: Found {$total} items to process in database.\n";
+            echo "INFO: Found {$total} items to process.\n";
             echo "INFO: Target directory: " . realpath($targetDir) . "\n";
             flush();
         }
@@ -521,16 +574,47 @@ class UpdateController extends Controller {
         if ($type === 'sets') {
             $updateStmt = $pdo->prepare("UPDATE sets SET img_url = ? WHERE set_num = ?");
         } elseif ($type === 'parts') {
-            $updateStmt = $pdo->prepare("UPDATE parts SET img_url = ? WHERE part_num = ?");
+            if ($csvMode) {
+                $updateStmt = $pdo->prepare("UPDATE inventory_parts SET img_url = ? WHERE part_num = ? AND color_id = ?");
+            } else {
+                $updateStmt = $pdo->prepare("UPDATE parts SET img_url = ? WHERE part_num = ?");
+            }
         } elseif ($type === 'themes') {
             $updateStmt = $pdo->prepare("UPDATE themes SET img_url = ? WHERE id = ?");
         }
 
         $counter = 0;
-        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+
+        // Fetch loop
+        while (true) {
+            $row = null;
+            if ($csvMode) {
+                if (($data = fgetcsv($csvHandle)) !== false) {
+                    // Check if row has enough columns
+                    if (count($data) <= max($idx_part, $idx_color, $idx_img)) {
+                         continue; // Skip invalid rows
+                    }
+                    $row = [
+                        'id' => $data[$idx_part],
+                        'color_id' => $data[$idx_color],
+                        'img_url' => $data[$idx_img]
+                    ];
+                } else {
+                    break; // End of CSV
+                }
+            } else {
+                $row = $stmt->fetch(PDO::FETCH_ASSOC);
+                if (!$row) break; // End of DB results
+            }
+
             $counter++;
             $id = $row['id'];
-            $url = $row['img_url'];
+            $url = $row['img_url'] ?? '';
+            $color_id = $row['color_id'] ?? null;
+            
+            if (empty($url) || strpos($url, 'http') !== 0) {
+                 continue; 
+            }
             
             // Determine extension
             $ext = 'jpg';
@@ -538,18 +622,27 @@ class UpdateController extends Controller {
                 $ext = $m[1];
             }
             
-            // Sanitize filename (replace invalid chars)
+            // Sanitize filename
             $safeId = str_replace(['/', '\\', ':', '*', '?', '"', '<', '>', '|'], '_', $id);
-            $filename = $safeId . '.' . $ext;
+            
+            if ($csvMode && $type === 'parts') {
+                $filename = $safeId . '_' . $color_id . '.' . $ext;
+            } else {
+                $filename = $safeId . '.' . $ext;
+            }
             
             $localPath = $targetDir . '/' . $filename;
             $webPath = '/images/' . $type . '/' . $filename;
 
             if (file_exists($localPath) && filesize($localPath) > 0) {
                 // File exists, just update DB
-                $updateStmt->execute([$webPath, $id]);
+                if ($csvMode && $type === 'parts') {
+                    $updateStmt->execute([$webPath, $id, $color_id]);
+                } else {
+                    $updateStmt->execute([$webPath, $id]);
+                }
                 $skipped++;
-                if ($isStream && $skipped % 50 === 0) {
+                if ($isStream && $skipped % 100 === 0) {
                      echo "SKIPPED: {$counter}/{$total} - $id (already local)\n";
                      flush();
                 }
@@ -557,7 +650,8 @@ class UpdateController extends Controller {
             }
 
             if ($isStream) {
-                echo "DOWNLOADING: {$counter}/{$total} - ID: $id | URL: $url ... ";
+                $displayId = $id . ($color_id !== null ? " (Color: $color_id)" : "");
+                echo "DOWNLOADING: {$counter}/{$total} - ID: $displayId | URL: $url ... ";
                 flush();
             }
 
@@ -605,10 +699,14 @@ class UpdateController extends Controller {
             
             if ($content !== false && strlen($content) > 0) {
                 file_put_contents($localPath, $content);
-                $updateStmt->execute([$webPath, $id]);
+                if ($csvMode && $type === 'parts') {
+                    $updateStmt->execute([$webPath, $id, $color_id]);
+                } else {
+                    $updateStmt->execute([$webPath, $id]);
+                }
                 $downloaded++;
                 if ($isStream) {
-                    echo "OK -> Saved to $webPath\n";
+                    echo "OK\n";
                     flush();
                 }
             } else {
@@ -618,6 +716,10 @@ class UpdateController extends Controller {
                     flush();
                 }
             }
+        }
+
+        if ($csvMode && $csvHandle) {
+            fclose($csvHandle);
         }
 
         $log = "Download complete for $type.\nDownloaded: $downloaded\nSkipped (already local): $skipped\nFailed: $failed";
