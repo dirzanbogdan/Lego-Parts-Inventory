@@ -7,7 +7,7 @@
     <?php foreach ($colors as $color): ?>
     <div class="col-md-3 col-6 mb-4 text-center">
         <div class="card h-100">
-            <img src="<?= (!empty($color['generic_img_url']) && (strpos($color['generic_img_url'], '/images') === 0 || strpos($color['generic_img_url'], '/parts_images') === 0)) ? htmlspecialchars($color['generic_img_url']) : '/images/no-image.png' ?>" 
+            <img src="<?= (!empty($color['img_url']) && (strpos($color['img_url'], '/images') === 0 || strpos($color['img_url'], '/parts_images') === 0)) ? htmlspecialchars($color['img_url']) : ((!empty($color['generic_img_url']) && (strpos($color['generic_img_url'], '/images') === 0 || strpos($color['generic_img_url'], '/parts_images') === 0)) ? htmlspecialchars($color['generic_img_url']) : '/images/no-image.png') ?>" 
                  class="card-img-top part-img mx-auto mt-2" 
                  alt="<?= htmlspecialchars($color['name']) ?>"
                  onerror="this.onerror=null; this.src='/images/no-image.png';"

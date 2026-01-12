@@ -33,7 +33,7 @@
             <?php foreach ($inventory as $item): ?>
             <tr class="<?= ($item['user_quantity'] >= $item['quantity']) ? 'table-success' : '' ?>">
                 <td>
-                    <img src="<?= (!empty($item['generic_img_url']) && (strpos($item['generic_img_url'], '/images') === 0 || strpos($item['generic_img_url'], '/parts_images') === 0)) ? htmlspecialchars($item['generic_img_url']) : '/images/no-image.png' ?>" 
+                    <img src="<?= (!empty($item['img_url']) && (strpos($item['img_url'], '/images') === 0 || strpos($item['img_url'], '/parts_images') === 0)) ? htmlspecialchars($item['img_url']) : ((!empty($item['generic_img_url']) && (strpos($item['generic_img_url'], '/images') === 0 || strpos($item['generic_img_url'], '/parts_images') === 0)) ? htmlspecialchars($item['generic_img_url']) : '/images/no-image.png') ?>" 
                          class="part-img" 
                          alt="Part Image"
                          onerror="this.onerror=null; this.src='/images/no-image.png';"
