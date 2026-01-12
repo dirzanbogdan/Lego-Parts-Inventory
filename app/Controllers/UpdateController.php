@@ -486,6 +486,12 @@ class UpdateController extends Controller {
         if ($type === 'sets') {
             $sql = "SELECT set_num as id, img_url FROM sets WHERE img_url LIKE 'http%'";
         } elseif ($type === 'parts') {
+            // For parts, we need to check both parts table and inventory_parts for images
+            // But typically parts images are in parts table or linked via colors. 
+            // Let's assume we are updating the parts table generic images first.
+            // Rebrickable often has part images like /media/parts/elements/123.jpg or /media/parts/ldraw/123.png
+            
+            // If we want to download images for parts that have external URLs
             $sql = "SELECT part_num as id, img_url FROM parts WHERE img_url LIKE 'http%'";
         } elseif ($type === 'themes') {
             $sql = "SELECT id, img_url FROM themes WHERE img_url LIKE 'http%'";
