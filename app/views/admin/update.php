@@ -51,19 +51,26 @@
     Verificare imagini
   </div>
   <div class="card-body">
+    <?php if (!empty($debug_file)): ?>
+        <div class="alert alert-success">
+            Fisier debug (<?= htmlspecialchars($debug_type ?? '') ?>) generat cu succes: 
+            <a href="<?= htmlspecialchars($debug_file) ?>" class="alert-link" target="_blank">Descarca CSV</a>
+        </div>
+    <?php endif; ?>
+    <?php $activeTab = $active_tab ?? 'sets'; ?>
     <ul class="nav nav-tabs" role="tablist">
       <li class="nav-item">
-        <a class="nav-link active" data-bs-toggle="tab" href="#tab-sets" role="tab">Sets</a>
+        <a class="nav-link <?php echo $activeTab === 'sets' ? 'active' : ''; ?>" data-bs-toggle="tab" href="#tab-sets" role="tab">Sets</a>
       </li>
       <li class="nav-item">
-        <a class="nav-link" data-bs-toggle="tab" href="#tab-parts" role="tab">Parts</a>
+        <a class="nav-link <?php echo $activeTab === 'parts' ? 'active' : ''; ?>" data-bs-toggle="tab" href="#tab-parts" role="tab">Parts</a>
       </li>
       <li class="nav-item">
-        <a class="nav-link" data-bs-toggle="tab" href="#tab-themes" role="tab">Themes</a>
+        <a class="nav-link <?php echo $activeTab === 'themes' ? 'active' : ''; ?>" data-bs-toggle="tab" href="#tab-themes" role="tab">Themes</a>
       </li>
     </ul>
     <div class="tab-content pt-3">
-      <div class="tab-pane active" id="tab-sets" role="tabpanel">
+      <div class="tab-pane <?php echo $activeTab === 'sets' ? 'show active' : ''; ?>" id="tab-sets" role="tabpanel">
         <form method="post" action="/admin/update/image-stats" class="mb-2">
           <input type="hidden" name="csrf" value="<?php echo htmlspecialchars($csrf); ?>">
           <input type="hidden" name="type" value="sets">
@@ -72,13 +79,29 @@
         <?php if (!empty($stats_sets)): ?>
           <div class="row">
             <div class="col">Total: <strong><?php echo (int)$stats_sets['total']; ?></strong></div>
-            <div class="col">Local: <strong><?php echo (int)$stats_sets['local']; ?></strong></div>
-            <div class="col">No-image: <strong><?php echo (int)$stats_sets['no_image']; ?></strong></div>
+            <div class="col">
+              Local: <strong><?php echo (int)$stats_sets['local']; ?></strong>
+              <form method="post" action="/admin/update/image-stats" class="d-inline">
+                <input type="hidden" name="csrf" value="<?php echo htmlspecialchars($csrf); ?>">
+                <input type="hidden" name="type" value="sets">
+                <input type="hidden" name="segment" value="local">
+                <button type="submit" class="btn btn-link btn-sm p-0 align-baseline">Detalii</button>
+              </form>
+            </div>
+            <div class="col">
+              No-image: <strong><?php echo (int)$stats_sets['no_image']; ?></strong>
+              <form method="post" action="/admin/update/image-stats" class="d-inline">
+                <input type="hidden" name="csrf" value="<?php echo htmlspecialchars($csrf); ?>">
+                <input type="hidden" name="type" value="sets">
+                <input type="hidden" name="segment" value="no_image">
+                <button type="submit" class="btn btn-link btn-sm p-0 align-baseline">Detalii</button>
+              </form>
+            </div>
             <div class="col">CDN: <strong><?php echo (int)$stats_sets['cdn']; ?></strong></div>
           </div>
         <?php endif; ?>
       </div>
-      <div class="tab-pane" id="tab-parts" role="tabpanel">
+      <div class="tab-pane <?php echo $activeTab === 'parts' ? 'show active' : ''; ?>" id="tab-parts" role="tabpanel">
         <form method="post" action="/admin/update/image-stats" class="mb-2">
           <input type="hidden" name="csrf" value="<?php echo htmlspecialchars($csrf); ?>">
           <input type="hidden" name="type" value="parts">
@@ -87,13 +110,29 @@
         <?php if (!empty($stats_parts)): ?>
           <div class="row">
             <div class="col">Total: <strong><?php echo (int)$stats_parts['total']; ?></strong></div>
-            <div class="col">Local: <strong><?php echo (int)$stats_parts['local']; ?></strong></div>
-            <div class="col">No-image: <strong><?php echo (int)$stats_parts['no_image']; ?></strong></div>
+            <div class="col">
+              Local: <strong><?php echo (int)$stats_parts['local']; ?></strong>
+              <form method="post" action="/admin/update/image-stats" class="d-inline">
+                <input type="hidden" name="csrf" value="<?php echo htmlspecialchars($csrf); ?>">
+                <input type="hidden" name="type" value="parts">
+                <input type="hidden" name="segment" value="local">
+                <button type="submit" class="btn btn-link btn-sm p-0 align-baseline">Detalii</button>
+              </form>
+            </div>
+            <div class="col">
+              No-image: <strong><?php echo (int)$stats_parts['no_image']; ?></strong>
+              <form method="post" action="/admin/update/image-stats" class="d-inline">
+                <input type="hidden" name="csrf" value="<?php echo htmlspecialchars($csrf); ?>">
+                <input type="hidden" name="type" value="parts">
+                <input type="hidden" name="segment" value="no_image">
+                <button type="submit" class="btn btn-link btn-sm p-0 align-baseline">Detalii</button>
+              </form>
+            </div>
             <div class="col">CDN: <strong><?php echo (int)$stats_parts['cdn']; ?></strong></div>
           </div>
         <?php endif; ?>
       </div>
-      <div class="tab-pane" id="tab-themes" role="tabpanel">
+      <div class="tab-pane <?php echo $activeTab === 'themes' ? 'show active' : ''; ?>" id="tab-themes" role="tabpanel">
         <form method="post" action="/admin/update/image-stats" class="mb-2">
           <input type="hidden" name="csrf" value="<?php echo htmlspecialchars($csrf); ?>">
           <input type="hidden" name="type" value="themes">
@@ -102,10 +141,31 @@
         <?php if (!empty($stats_themes)): ?>
           <div class="row">
             <div class="col">Total: <strong><?php echo (int)$stats_themes['total']; ?></strong></div>
-            <div class="col">Local: <strong><?php echo (int)$stats_themes['local']; ?></strong></div>
-            <div class="col">No-image: <strong><?php echo (int)$stats_themes['no_image']; ?></strong></div>
+            <div class="col">
+              Local: <strong><?php echo (int)$stats_themes['local']; ?></strong>
+              <form method="post" action="/admin/update/image-stats" class="d-inline">
+                <input type="hidden" name="csrf" value="<?php echo htmlspecialchars($csrf); ?>">
+                <input type="hidden" name="type" value="themes">
+                <input type="hidden" name="segment" value="local">
+                <button type="submit" class="btn btn-link btn-sm p-0 align-baseline">Detalii</button>
+              </form>
+            </div>
+            <div class="col">
+              No-image: <strong><?php echo (int)$stats_themes['no_image']; ?></strong>
+              <form method="post" action="/admin/update/image-stats" class="d-inline">
+                <input type="hidden" name="csrf" value="<?php echo htmlspecialchars($csrf); ?>">
+                <input type="hidden" name="type" value="themes">
+                <input type="hidden" name="segment" value="no_image">
+                <button type="submit" class="btn btn-link btn-sm p-0 align-baseline">Detalii</button>
+              </form>
+            </div>
             <div class="col">CDN: <strong><?php echo (int)$stats_themes['cdn']; ?></strong></div>
           </div>
+          <form method="post" action="/admin/update/export-debug" class="mt-3">
+            <input type="hidden" name="csrf" value="<?php echo htmlspecialchars($csrf); ?>">
+            <input type="hidden" name="type" value="themes">
+            <button type="submit" class="btn btn-warning btn-sm">Export Debug CSV (Lipsa Local)</button>
+          </form>
         <?php endif; ?>
       </div>
     </div>
@@ -114,3 +174,72 @@
     Verificarea se face la click pe buton
   </div>
   </div>
+
+<?php if (!empty($detail_items) && !empty($detail_type) && !empty($detail_segment)): ?>
+<div class="modal fade" id="imageDetailModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-xl">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">
+          Detalii <?php echo htmlspecialchars($detail_type); ?> - <?php echo htmlspecialchars($detail_segment); ?>
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="table-responsive">
+          <table class="table table-sm table-striped">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Nume</th>
+                <th>Link</th>
+              </tr>
+            </thead>
+            <tbody>
+              <?php foreach ($detail_items as $row): ?>
+                <tr>
+                  <td>
+                    <?php
+                    if ($detail_type === 'sets') {
+                        echo htmlspecialchars($row['set_num'] ?? '');
+                    } elseif ($detail_type === 'parts') {
+                        echo htmlspecialchars($row['part_num'] ?? '');
+                    } elseif ($detail_type === 'themes') {
+                        echo htmlspecialchars($row['id'] ?? '');
+                    }
+                    ?>
+                  </td>
+                  <td>
+                    <?php echo htmlspecialchars($row['name'] ?? ''); ?>
+                  </td>
+                  <td>
+                    <?php if ($detail_type === 'sets'): ?>
+                      <a href="/sets/<?php echo urlencode($row['set_num'] ?? ''); ?>" target="_blank">Deschide set</a>
+                    <?php elseif ($detail_type === 'parts'): ?>
+                      <a href="/parts/<?php echo urlencode($row['part_num'] ?? ''); ?>" target="_blank">Deschide piesă</a>
+                    <?php elseif ($detail_type === 'themes'): ?>
+                      <a href="/sets?theme_id=<?php echo urlencode((string)($row['id'] ?? '')); ?>" target="_blank">Deschide seturi temă</a>
+                    <?php endif; ?>
+                  </td>
+                </tr>
+              <?php endforeach; ?>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Închide</button>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  var modalEl = document.getElementById('imageDetailModal');
+  if (modalEl && typeof bootstrap !== 'undefined') {
+    var m = new bootstrap.Modal(modalEl);
+    m.show();
+  }
+});
+</script>
+<?php endif; ?>

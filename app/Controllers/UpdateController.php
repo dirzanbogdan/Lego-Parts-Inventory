@@ -224,10 +224,12 @@ class UpdateController extends Controller {
             return;
         }
         $type = $_POST['type'] ?? '';
+        $segment = $_POST['segment'] ?? '';
         $pdo = Config::db();
         $statsSets = [];
         $statsParts = [];
         $statsThemes = [];
+        $detailItems = [];
         
         $compute = function(string $table) use ($pdo): array {
             $total = (int)$pdo->query("SELECT COUNT(*) FROM $table")->fetchColumn();
@@ -239,10 +241,46 @@ class UpdateController extends Controller {
         
         if ($type === 'sets') {
             $statsSets = $compute('sets');
+            if ($segment !== '') {
+                if ($segment === 'local') {
+                    $sql = "SELECT set_num, name, img_url FROM sets WHERE img_url LIKE '/images%' OR img_url LIKE '/parts_images%' ORDER BY set_num LIMIT 500";
+                } elseif ($segment === 'no_image') {
+                    $sql = "SELECT set_num, name, img_url FROM sets WHERE img_url IS NULL OR img_url = '' OR img_url = '/images/no-image.png' ORDER BY set_num LIMIT 500";
+                } else {
+                    $sql = null;
+                }
+                if (!empty($sql)) {
+                    $detailItems = $pdo->query($sql)->fetchAll(PDO::FETCH_ASSOC);
+                }
+            }
         } elseif ($type === 'parts') {
             $statsParts = $compute('parts');
+            if ($segment !== '') {
+                if ($segment === 'local') {
+                    $sql = "SELECT part_num, name, img_url FROM parts WHERE img_url LIKE '/images%' OR img_url LIKE '/parts_images%' ORDER BY part_num LIMIT 500";
+                } elseif ($segment === 'no_image') {
+                    $sql = "SELECT part_num, name, img_url FROM parts WHERE img_url IS NULL OR img_url = '' OR img_url = '/images/no-image.png' ORDER BY part_num LIMIT 500";
+                } else {
+                    $sql = null;
+                }
+                if (!empty($sql)) {
+                    $detailItems = $pdo->query($sql)->fetchAll(PDO::FETCH_ASSOC);
+                }
+            }
         } elseif ($type === 'themes') {
             $statsThemes = $compute('themes');
+            if ($segment !== '') {
+                if ($segment === 'local') {
+                    $sql = "SELECT id, name, img_url FROM themes WHERE img_url LIKE '/images%' OR img_url LIKE '/parts_images%' ORDER BY id LIMIT 500";
+                } elseif ($segment === 'no_image') {
+                    $sql = "SELECT id, name, img_url FROM themes WHERE img_url IS NULL OR img_url = '' OR img_url = '/images/no-image.png' ORDER BY id LIMIT 500";
+                } else {
+                    $sql = null;
+                }
+                if (!empty($sql)) {
+                    $detailItems = $pdo->query($sql)->fetchAll(PDO::FETCH_ASSOC);
+                }
+            }
         }
         
         $this->view('admin/update', [
@@ -251,6 +289,79 @@ class UpdateController extends Controller {
             'stats_sets' => $statsSets,
             'stats_parts' => $statsParts,
             'stats_themes' => $statsThemes,
+            'active_tab' => $type ?: 'sets',
+            'detail_type' => $type,
+            'detail_segment' => $segment,
+            'detail_items' => $detailItems,
+        ]);
+    }
+
+    public function exportDebug(): void {
+        $this->requirePost();
+        if (!\App\Core\Security::verifyCsrf($_POST['csrf'] ?? null)) {
+            http_response_code(400);
+            echo 'bad request';
+            return;
+        }
+
+        $type = $_POST['type'] ?? 'sets';
+        $pdo = Config::db();
+        
+        $sql = "";
+        $headers = [];
+        
+        if ($type === 'sets') {
+            $sql = "SELECT set_num, name, img_url FROM sets WHERE img_url IS NULL OR img_url = '' OR (img_url NOT LIKE '/images%' AND img_url NOT LIKE '/parts_images%')";
+            $headers = ['set_num', 'name', 'img_url'];
+        } elseif ($type === 'parts') {
+            $sql = "SELECT part_num, name, img_url FROM parts WHERE img_url IS NULL OR img_url = '' OR (img_url NOT LIKE '/images%' AND img_url NOT LIKE '/parts_images%')";
+            $headers = ['part_num', 'name', 'img_url'];
+        } elseif ($type === 'themes') {
+            $sql = "SELECT id, name, img_url FROM themes WHERE img_url IS NULL OR img_url = '' OR (img_url NOT LIKE '/images%' AND img_url NOT LIKE '/parts_images%')";
+            $headers = ['id', 'name', 'img_url'];
+        } else {
+            header('Location: /admin/update');
+            return;
+        }
+
+        $stmt = $pdo->query($sql);
+        
+        $debugDir = __DIR__ . '/../../public/debug';
+        if (!is_dir($debugDir)) {
+            mkdir($debugDir, 0777, true);
+        }
+
+        $filename = 'debug_' . $type . '_' . date('Ymd_His') . '.csv';
+        $filepath = $debugDir . '/' . $filename;
+
+        $fp = fopen($filepath, 'w');
+        fputs($fp, "\xEF\xBB\xBF"); // BOM
+        fputcsv($fp, $headers);
+
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            fputcsv($fp, $row);
+        }
+        fclose($fp);
+
+        $downloadUrl = '/debug/' . $filename;
+        
+        $local = trim($this->cmd('git rev-parse HEAD'));
+        $remote = trim($this->cmd('git ls-remote origin HEAD'));
+        $remoteHash = trim(explode("\t", $remote)[0] ?? '');
+        $localShort = $local ? substr($local, -7) : '';
+        $remoteShort = ($remoteHash && $remoteHash !== $local) ? substr($remoteHash, -7) : '';
+
+        $this->view('admin/update', [
+            'local' => $local,
+            'remote' => $remoteHash,
+            'local_short' => $localShort,
+            'remote_short' => $remoteShort,
+            'status' => $this->cmd('git status -sb'),
+            'last_backup' => $this->lastBackupPath(),
+            'csrf' => Security::csrfToken(),
+            'debug_file' => $downloadUrl,
+            'debug_type' => $type,
+            'active_tab' => $type
         ]);
     }
 
