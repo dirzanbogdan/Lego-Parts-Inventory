@@ -651,8 +651,18 @@ class UpdateController extends Controller {
 
             if ($isStream) {
                 $displayId = $id . ($color_id !== null ? " (Color: $color_id)" : "");
-                echo "DOWNLOADING: {$counter}/{$total} - ID: $displayId | URL: $url ... ";
-                flush();
+                // Only log every 50th download to prevent browser crash with 1.4M lines
+                if ($counter % 50 === 0) {
+                     echo "DOWNLOADING: {$counter}/{$total} - ID: $displayId | URL: $url ... ";
+                     flush();
+                }
+            }
+
+            // Rate limiting: sleep 100ms between downloads to avoid being blocked
+            usleep(100000); 
+            // Batch pause: sleep 1s every 100 downloads
+            if ($downloaded > 0 && $downloaded % 100 === 0) {
+                sleep(1);
             }
 
             // Download using CURL for better reliability and debug info
@@ -706,13 +716,16 @@ class UpdateController extends Controller {
                 }
                 $downloaded++;
                 if ($isStream) {
-                    echo "OK\n";
-                    flush();
+                    if ($counter % 50 === 0) {
+                        echo "OK\n";
+                        flush();
+                    }
                 }
             } else {
                 $failed++;
                 if ($isStream) {
-                    echo "FAILED ($errorMsg)\n";
+                    // Always log failures
+                    echo "FAILED: $id - $errorMsg\n";
                     flush();
                 }
             }
