@@ -16,7 +16,7 @@
                             <p class="card-text mb-1" style="font-size: 0.8rem;">
                                 <span class="text-muted"><?= $item->set_num ?></span><br>
                                 <?php if (isset($item->num_parts)): ?>
-                                    <span class="badge bg-secondary"><?= $item->num_parts ?> parts</span>
+                                    <span class="badge <?= $item->num_parts == 0 ? 'bg-danger' : 'bg-secondary' ?>"><?= $item->num_parts ?> parts</span>
                                 <?php endif; ?>
                             </p>
                             <a href="/sets/<?= $item->set_num ?>" class="btn btn-primary btn-sm py-0 px-2" style="font-size: 0.75rem;">View</a>
