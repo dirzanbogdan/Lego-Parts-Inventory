@@ -642,8 +642,9 @@ class UpdateController extends Controller {
                     $updateStmt->execute([$webPath, $id]);
                 }
                 $skipped++;
-                // Update stats every 10 skipped items to avoid flooding but show progress
-                if ($isStream && $skipped % 10 === 0) {
+                // Update stats every 1000 skipped items to avoid flooding network stream
+                // (checking local files is very fast, so 10 was too frequent)
+                if ($isStream && $skipped % 1000 === 0) {
                      $stats = json_encode(['skipped' => $skipped, 'downloaded' => $downloaded, 'failed' => $failed, 'processed' => $counter, 'total' => $total]);
                      echo "STATS:$stats\n";
                      flush();
