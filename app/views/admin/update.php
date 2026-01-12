@@ -216,12 +216,26 @@
         <h5 class="modal-title">Download Progress</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" id="modalCloseBtn" disabled></button>
       </div>
-      <div class="modal-body bg-dark text-light font-monospace" style="height: 400px; overflow-y: auto;" id="logContent">
-        <div class="d-flex align-items-center mb-3" id="loaderSpinner">
-            <div class="spinner-border text-light me-3" role="status"></div>
-            <span>Processing...</span>
+      <div class="modal-body bg-dark text-light" style="height: 500px; display: flex; flex-direction: column;">
+        <!-- Stats Dashboard -->
+        <div id="downloadStats" class="p-3 mb-2 border-bottom" style="font-family: monospace; font-size: 1.1em;">
+            <div class="row">
+                <div class="col-4 text-warning">SKIPPED: <span id="statSkipped">0</span></div>
+                <div class="col-4 text-success">DOWNLOADED: <span id="statDownloaded">0</span></div>
+                <div class="col-4 text-danger">FAILED: <span id="statFailed">0</span></div>
+            </div>
+            <div class="row mt-2">
+                <div class="col-12 text-info">PROCESSED: <span id="statProcessed">0</span> / <span id="statTotal">0</span></div>
+            </div>
         </div>
-        <pre id="logText" class="m-0 text-light" style="white-space: pre-wrap;"></pre>
+
+        <div style="flex-grow: 1; overflow-y: auto; font-family: monospace;" id="logContent">
+            <div class="d-flex align-items-center mb-3" id="loaderSpinner">
+                <div class="spinner-border text-light me-3" role="status"></div>
+                <span>Processing...</span>
+            </div>
+            <pre id="logText" class="m-0 text-light" style="white-space: pre-wrap;"></pre>
+        </div>
       </div>
       <div class="modal-footer justify-content-between">
                 <div>
@@ -249,6 +263,11 @@
             // Reset UI
             if (!isPaused) {
                 logText.textContent = '';
+                document.getElementById('statSkipped').textContent = '0';
+                document.getElementById('statDownloaded').textContent = '0';
+                document.getElementById('statFailed').textContent = '0';
+                document.getElementById('statProcessed').textContent = '0';
+                document.getElementById('statTotal').textContent = '0';
             }
             spinner.style.display = 'flex';
             closeBtns.forEach(btn => btn.disabled = true);
@@ -271,6 +290,7 @@
             }).then(response => {
                 const reader = response.body.getReader();
                 const decoder = new TextDecoder();
+                let buffer = '';
                 
                 function read() {
                     reader.read().then(({done, value}) => {
@@ -290,15 +310,41 @@
                         }
                         
                         const chunk = decoder.decode(value, {stream: true});
-                        logText.textContent += chunk;
+                        buffer += chunk;
                         
-                        // Limit log size to prevent browser crash (keep last 50k chars)
-                        if (logText.textContent.length > 50000) {
-                            logText.textContent = logText.textContent.substring(logText.textContent.length - 50000);
-                        }
+                        let lines = buffer.split('\n');
+                        buffer = lines.pop(); // Keep last partial line
+                        
+                        let textToAppend = '';
+                        
+                        lines.forEach(line => {
+                            if (line.startsWith('STATS:')) {
+                                try {
+                                    const stats = JSON.parse(line.substring(6));
+                                    document.getElementById('statSkipped').textContent = stats.skipped;
+                                    document.getElementById('statDownloaded').textContent = stats.downloaded;
+                                    document.getElementById('statFailed').textContent = stats.failed;
+                                    document.getElementById('statProcessed').textContent = stats.processed;
+                                    document.getElementById('statTotal').textContent = stats.total;
+                                } catch (e) {
+                                    console.error('Stats parse error', e);
+                                }
+                            } else {
+                                textToAppend += line + '\n';
+                            }
+                        });
+                        
+                        if (textToAppend) {
+                            logText.textContent += textToAppend;
+                            
+                            // Limit log size
+                            if (logText.textContent.length > 50000) {
+                                logText.textContent = logText.textContent.substring(logText.textContent.length - 50000);
+                            }
 
-                        const container = document.getElementById('logContent');
-                        container.scrollTop = container.scrollHeight;
+                            const container = document.getElementById('logContent');
+                            container.scrollTop = container.scrollHeight;
+                        }
                         
                         read();
                     });

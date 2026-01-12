@@ -642,28 +642,24 @@ class UpdateController extends Controller {
                     $updateStmt->execute([$webPath, $id]);
                 }
                 $skipped++;
-                if ($isStream && $skipped % 100 === 0) {
-                     echo "SKIPPED: {$counter}/{$total} - $id (already local)\n";
+                if ($isStream && $counter % 50 === 0) {
+                     $stats = json_encode(['skipped' => $skipped, 'downloaded' => $downloaded, 'failed' => $failed, 'processed' => $counter, 'total' => $total]);
+                     echo "STATS:$stats\n";
                      flush();
                 }
                 continue;
             }
 
-            if ($isStream) {
-                $displayId = $id . ($color_id !== null ? " (Color: $color_id)" : "");
-                // Continuous logging with timestamp
-                $time = date('H:i:s');
-                echo "[$time] DOWNLOADING: {$counter}/{$total} - ID: $displayId | URL: $url ... ";
-                flush();
-            }
-
             // Rate limiting: sleep random 1-10s every 50 downloads
             if ($downloaded > 0 && $downloaded % 50 === 0) {
                 $pause = rand(1, 10);
+                // Update stats before pause
                 if ($isStream) {
-                    $time = date('H:i:s');
-                    echo "[$time] INFO: Rate limiting pause for {$pause}s...\n";
-                    flush();
+                     $stats = json_encode(['skipped' => $skipped, 'downloaded' => $downloaded, 'failed' => $failed, 'processed' => $counter, 'total' => $total]);
+                     echo "STATS:$stats\n";
+                     $time = date('H:i:s');
+                     echo "[$time] INFO: Rate limiting pause for {$pause}s...\n";
+                     flush();
                 }
                 sleep($pause);
             }
@@ -721,9 +717,10 @@ class UpdateController extends Controller {
                     $updateStmt->execute([$webPath, $id]);
                 }
                 $downloaded++;
-                if ($isStream) {
-                    echo "OK\n";
-                    flush();
+                if ($isStream && $counter % 50 === 0) {
+                     $stats = json_encode(['skipped' => $skipped, 'downloaded' => $downloaded, 'failed' => $failed, 'processed' => $counter, 'total' => $total]);
+                     echo "STATS:$stats\n";
+                     flush();
                 }
             } else {
                 $failed++;
