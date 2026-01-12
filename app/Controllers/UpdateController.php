@@ -91,7 +91,6 @@ class UpdateController extends Controller {
                 $baseImagesDir,
                 \FilesystemIterator::SKIP_DOTS
                     | \FilesystemIterator::FOLLOW_SYMLINKS
-                    | \RecursiveDirectoryIterator::CATCH_GET_CHILD
             );
             $iterator = new \RecursiveIteratorIterator($dirIterator, \RecursiveIteratorIterator::SELF_FIRST);
 
