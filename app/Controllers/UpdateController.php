@@ -215,6 +215,44 @@ class UpdateController extends Controller {
             'local' => '', 'remote' => '', 'local_short' => '', 'remote_short' => '', 'status' => '', 'last_backup' => '' 
         ]);
     }
+    
+    public function imageStats(): void {
+        $this->requirePost();
+        if (!\App\Core\Security::verifyCsrf($_POST['csrf'] ?? null)) {
+            http_response_code(400);
+            echo 'bad request';
+            return;
+        }
+        $type = $_POST['type'] ?? '';
+        $pdo = Config::db();
+        $statsSets = [];
+        $statsParts = [];
+        $statsThemes = [];
+        
+        $compute = function(string $table) use ($pdo): array {
+            $total = (int)$pdo->query("SELECT COUNT(*) FROM $table")->fetchColumn();
+            $local = (int)$pdo->query("SELECT COUNT(*) FROM $table WHERE img_url LIKE '/images%' OR img_url LIKE '/parts_images%'")->fetchColumn();
+            $noimg = (int)$pdo->query("SELECT COUNT(*) FROM $table WHERE img_url IS NULL OR img_url = '' OR img_url = '/images/no-image.png'")->fetchColumn();
+            $cdn = (int)$pdo->query("SELECT COUNT(*) FROM $table WHERE img_url LIKE 'http%' AND img_url LIKE '%rebrickable%'")->fetchColumn();
+            return ['total' => $total, 'local' => $local, 'no_image' => $noimg, 'cdn' => $cdn];
+        };
+        
+        if ($type === 'sets') {
+            $statsSets = $compute('sets');
+        } elseif ($type === 'parts') {
+            $statsParts = $compute('parts');
+        } elseif ($type === 'themes') {
+            $statsThemes = $compute('themes');
+        }
+        
+        $this->view('admin/update', [
+            'csrf' => Security::csrfToken(),
+            'local' => '', 'remote' => '', 'local_short' => '', 'remote_short' => '', 'status' => '', 'last_backup' => '',
+            'stats_sets' => $statsSets,
+            'stats_parts' => $statsParts,
+            'stats_themes' => $statsThemes,
+        ]);
+    }
 
     private function findBestImagesDir(array &$log): ?string {
         $candidates = [
