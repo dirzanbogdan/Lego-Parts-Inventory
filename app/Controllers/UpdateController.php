@@ -651,8 +651,9 @@ class UpdateController extends Controller {
 
             if ($isStream) {
                 $displayId = $id . ($color_id !== null ? " (Color: $color_id)" : "");
-                // Continuous logging
-                echo "DOWNLOADING: {$counter}/{$total} - ID: $displayId | URL: $url ... ";
+                // Continuous logging with timestamp
+                $time = date('H:i:s');
+                echo "[$time] DOWNLOADING: {$counter}/{$total} - ID: $displayId | URL: $url ... ";
                 flush();
             }
 
@@ -660,7 +661,8 @@ class UpdateController extends Controller {
             if ($downloaded > 0 && $downloaded % 50 === 0) {
                 $pause = rand(1, 10);
                 if ($isStream) {
-                    echo "INFO: Rate limiting pause for {$pause}s...\n";
+                    $time = date('H:i:s');
+                    echo "[$time] INFO: Rate limiting pause for {$pause}s...\n";
                     flush();
                 }
                 sleep($pause);
