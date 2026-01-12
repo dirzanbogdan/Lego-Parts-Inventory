@@ -390,6 +390,28 @@ class UpdateController extends Controller {
         set_time_limit(0); // Unlimited time
         
         $type = $_POST['type'] ?? 'sets';
+        
+        // Detect if we should stream (check for fetch/ajax header or param)
+        // For now, we assume the new JS implementation will handle the stream
+        $isStream = true; 
+
+        if ($isStream) {
+            // Disable buffering
+            if (function_exists('apache_setenv')) {
+                @apache_setenv('no-gzip', '1');
+            }
+            @ini_set('output_buffering', '0');
+            @ini_set('zlib.output_compression', '0');
+            @ini_set('implicit_flush', '1');
+            while (ob_get_level()) ob_end_clean();
+            
+            header('Content-Type: text/plain; charset=utf-8');
+            header('X-Accel-Buffering: no'); // Nginx
+            
+            echo "STARTED: Download process for {$type}\n";
+            flush();
+        }
+
         $pdo = Config::db();
         
         // Target directory: public/images/{type}
@@ -407,11 +429,23 @@ class UpdateController extends Controller {
         } elseif ($type === 'themes') {
             $sql = "SELECT id, img_url FROM themes WHERE img_url LIKE 'http%'";
         } else {
+            if ($isStream) {
+                echo "ERROR: Invalid type selected.\n";
+                return;
+            }
             header('Location: /admin/update');
             return;
         }
 
         $stmt = $pdo->query($sql);
+        $total = $stmt->rowCount();
+        
+        if ($isStream) {
+            echo "INFO: Found {$total} items to process in database.\n";
+            echo "INFO: Target directory: " . realpath($targetDir) . "\n";
+            flush();
+        }
+
         $downloaded = 0;
         $failed = 0;
         $skipped = 0;
@@ -425,7 +459,9 @@ class UpdateController extends Controller {
             $updateStmt = $pdo->prepare("UPDATE themes SET img_url = ? WHERE id = ?");
         }
 
+        $counter = 0;
         while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            $counter++;
             $id = $row['id'];
             $url = $row['img_url'];
             
@@ -446,7 +482,16 @@ class UpdateController extends Controller {
                 // File exists, just update DB
                 $updateStmt->execute([$webPath, $id]);
                 $skipped++;
+                if ($isStream && $skipped % 50 === 0) {
+                     echo "SKIPPED: {$counter}/{$total} - $id (already local)\n";
+                     flush();
+                }
                 continue;
+            }
+
+            if ($isStream) {
+                echo "DOWNLOADING: {$counter}/{$total} - ID: $id | URL: $url ... ";
+                flush();
             }
 
             // Download
@@ -461,12 +506,27 @@ class UpdateController extends Controller {
                 file_put_contents($localPath, $content);
                 $updateStmt->execute([$webPath, $id]);
                 $downloaded++;
+                if ($isStream) {
+                    echo "OK -> Saved to $webPath\n";
+                    flush();
+                }
             } else {
                 $failed++;
+                if ($isStream) {
+                    echo "FAILED\n";
+                    flush();
+                }
             }
         }
 
         $log = "Download complete for $type.\nDownloaded: $downloaded\nSkipped (already local): $skipped\nFailed: $failed";
+        
+        if ($isStream) {
+            echo "\n----------------------------------------\n";
+            echo $log . "\n";
+            echo "FINISHED";
+            exit;
+        }
         
         // Reuse scanImages view logic or redirect
         $this->view('admin/update', [

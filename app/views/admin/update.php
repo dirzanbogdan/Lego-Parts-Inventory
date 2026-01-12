@@ -105,11 +105,7 @@
               <input type="hidden" name="type" value="sets">
               <button type="submit" class="btn btn-warning btn-sm">Export Debug CSV (Lipsa Local)</button>
             </form>
-            <form method="post" action="/admin/update/download-images">
-              <input type="hidden" name="csrf" value="<?php echo htmlspecialchars($csrf); ?>">
-              <input type="hidden" name="type" value="sets">
-              <button type="submit" class="btn btn-success btn-sm" onclick="return confirm('Download images from CDN? This may take a while.');">Download Missing Images</button>
-            </form>
+            <button type="button" class="btn btn-success btn-sm" onclick="startDownload('sets', '<?php echo htmlspecialchars($csrf); ?>')">Download Missing Images</button>
           </div>
           <?php if (!empty($latest_debug_sets)): ?>
             <div class="mt-2">
@@ -153,11 +149,7 @@
               <input type="hidden" name="type" value="parts">
               <button type="submit" class="btn btn-warning btn-sm">Export Debug CSV (Lipsa Local)</button>
             </form>
-            <form method="post" action="/admin/update/download-images">
-              <input type="hidden" name="csrf" value="<?php echo htmlspecialchars($csrf); ?>">
-              <input type="hidden" name="type" value="parts">
-              <button type="submit" class="btn btn-success btn-sm" onclick="return confirm('Download images from CDN? This may take a while.');">Download Missing Images</button>
-            </form>
+            <button type="button" class="btn btn-success btn-sm" onclick="startDownload('parts', '<?php echo htmlspecialchars($csrf); ?>')">Download Missing Images</button>
           </div>
           <?php if (!empty($latest_debug_parts)): ?>
             <div class="mt-2">
@@ -201,11 +193,7 @@
               <input type="hidden" name="type" value="themes">
               <button type="submit" class="btn btn-warning btn-sm">Export Debug CSV (Lipsa Local)</button>
             </form>
-            <form method="post" action="/admin/update/download-images">
-              <input type="hidden" name="csrf" value="<?php echo htmlspecialchars($csrf); ?>">
-              <input type="hidden" name="type" value="themes">
-              <button type="submit" class="btn btn-success btn-sm" onclick="return confirm('Download images from CDN? This may take a while.');">Download Missing Images</button>
-            </form>
+            <button type="button" class="btn btn-success btn-sm" onclick="startDownload('themes', '<?php echo htmlspecialchars($csrf); ?>')">Download Missing Images</button>
           </div>
         <?php endif; ?>
       </div>
@@ -215,6 +203,85 @@
     Verificarea se face la click pe buton
   </div>
   </div>
+
+<!-- Log Modal -->
+<div class="modal fade" id="logModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Download Progress</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" id="modalCloseBtn" disabled></button>
+      </div>
+      <div class="modal-body bg-dark text-light font-monospace" style="height: 400px; overflow-y: auto;" id="logContent">
+        <div class="d-flex align-items-center mb-3" id="loaderSpinner">
+            <div class="spinner-border text-light me-3" role="status"></div>
+            <span>Processing...</span>
+        </div>
+        <pre id="logText" class="m-0 text-light" style="white-space: pre-wrap;"></pre>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" id="modalCloseBtnBottom" disabled>Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function startDownload(type, csrf) {
+    const modal = new bootstrap.Modal(document.getElementById('logModal'));
+    const logText = document.getElementById('logText');
+    const spinner = document.getElementById('loaderSpinner');
+    const closeBtns = [document.getElementById('modalCloseBtn'), document.getElementById('modalCloseBtnBottom')];
+    
+    logText.textContent = '';
+    spinner.style.display = 'flex';
+    closeBtns.forEach(btn => btn.disabled = true);
+    modal.show();
+
+    const formData = new FormData();
+    formData.append('type', type);
+    formData.append('csrf', csrf);
+
+    fetch('/admin/update/download-images', {
+        method: 'POST',
+        body: formData
+    }).then(response => {
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        
+        function read() {
+            reader.read().then(({done, value}) => {
+                if (done) {
+                    spinner.style.display = 'none';
+                    closeBtns.forEach(btn => btn.disabled = false);
+                    logText.textContent += '\nProcess Finished.';
+                    const container = document.getElementById('logContent');
+                    container.scrollTop = container.scrollHeight;
+                    closeBtns.forEach(btn => {
+                        btn.onclick = () => window.location.reload();
+                    });
+                    return;
+                }
+                
+                const chunk = decoder.decode(value, {stream: true});
+                logText.textContent += chunk;
+                
+                const container = document.getElementById('logContent');
+                container.scrollTop = container.scrollHeight;
+                
+                read();
+            });
+        }
+        read();
+    }).catch(err => {
+        logText.textContent += '\nError: ' + err;
+        spinner.style.display = 'none';
+        closeBtns.forEach(btn => btn.disabled = false);
+    });
+    
+    return false;
+}
+</script>
 
 <?php if (!empty($detail_items) && !empty($detail_type) && !empty($detail_segment)): ?>
 <div class="modal fade" id="imageDetailModal" tabindex="-1" aria-hidden="true">
