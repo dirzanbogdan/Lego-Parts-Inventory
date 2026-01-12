@@ -185,12 +185,12 @@ class UpdateController extends Controller {
 
     private function findBestImagesDir(array &$log): ?string {
         $candidates = [
+            __DIR__ . '/../../parts and sets/png',
+            __DIR__ . '/../../parts and sets',
             __DIR__ . '/../../public/images',
             $_SERVER['DOCUMENT_ROOT'] . '/public/images',
             $_SERVER['DOCUMENT_ROOT'] . '/images',
             __DIR__ . '/../../images',
-            __DIR__ . '/../../parts and sets',
-            __DIR__ . '/../../parts and sets/png',
         ];
 
         foreach ($candidates as $path) {
