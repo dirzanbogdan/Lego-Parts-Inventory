@@ -87,7 +87,12 @@ class UpdateController extends Controller {
             $samples = 0;
 
             // Create iterators
-            $dirIterator = new \RecursiveDirectoryIterator($baseImagesDir, \RecursiveDirectoryIterator::SKIP_DOTS);
+            $dirIterator = new \RecursiveDirectoryIterator(
+                $baseImagesDir,
+                \FilesystemIterator::SKIP_DOTS
+                    | \FilesystemIterator::FOLLOW_SYMLINKS
+                    | \RecursiveDirectoryIterator::CATCH_GET_CHILD
+            );
             $iterator = new \RecursiveIteratorIterator($dirIterator, \RecursiveIteratorIterator::SELF_FIRST);
 
             // Prepare statements
@@ -185,6 +190,8 @@ class UpdateController extends Controller {
             $_SERVER['DOCUMENT_ROOT'] . '/public/images',
             $_SERVER['DOCUMENT_ROOT'] . '/images',
             __DIR__ . '/../../images',
+            __DIR__ . '/../../parts and sets',
+            __DIR__ . '/../../parts and sets/png',
         ];
 
         foreach ($candidates as $path) {
