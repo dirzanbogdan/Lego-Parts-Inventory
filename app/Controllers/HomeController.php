@@ -31,4 +31,23 @@ class HomeController extends Controller {
             'type' => $type
         ]);
     }
+
+    public function apiSearch() {
+        header('Content-Type: application/json');
+        
+        $query = $_GET['q'] ?? '';
+        $type = $_GET['type'] ?? 'sets';
+        
+        $results = [];
+        if (strlen($query) >= 2) {
+            if ($type === 'sets') {
+                $results = Set::search($query);
+            } else {
+                $results = Part::search($query);
+            }
+        }
+        
+        echo json_encode($results);
+        exit;
+    }
 }

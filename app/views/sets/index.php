@@ -9,7 +9,8 @@
             <div class="card-body p-2 text-center">
                 <h6 class="card-title text-truncate" title="<?= htmlspecialchars($set->name) ?>" style="font-size: 0.9rem; margin-bottom: 0.3rem;"><?= htmlspecialchars($set->name) ?></h6>
                 <p class="card-text mb-1" style="font-size: 0.8rem;">
-                    <span class="text-muted"><?= $set->set_num ?> (<?= $set->year ?>)</span>
+                    <span class="text-muted"><?= $set->set_num ?> (<?= $set->year ?>)</span><br>
+                    <span class="badge bg-secondary"><?= $set->num_parts ?> parts</span>
                 </p>
                 <a href="/sets/<?= $set->set_num ?>" class="btn btn-primary btn-sm py-0 px-2" style="font-size: 0.75rem;">View</a>
             </div>

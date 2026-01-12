@@ -12,6 +12,7 @@ $router = new Router();
 
 $router->get('/', [HomeController::class, 'index']);
 $router->get('/search', [HomeController::class, 'search']);
+$router->get('/api/search', [HomeController::class, 'apiSearch']);
 $router->get('/sets', [SetsController::class, 'index']);
 $router->get('/sets/{id}', [SetsController::class, 'show']);
 $router->get('/parts', [PartsController::class, 'index']);

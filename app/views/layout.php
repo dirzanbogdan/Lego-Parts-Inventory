@@ -24,13 +24,14 @@
                     <li class="nav-item"><a class="nav-link" href="/themes">Themes</a></li>
                     <li class="nav-item"><a class="nav-link" href="/admin/update">Update</a></li>
                 </ul>
-                <form class="d-flex" action="/search" method="get">
-                    <select name="type" class="form-select me-2" style="width: 100px;">
+                <form class="d-flex position-relative" action="/search" method="get" id="searchForm">
+                    <select name="type" class="form-select me-2" style="width: 100px;" id="searchType">
                         <option value="sets">Sets</option>
                         <option value="parts">Parts</option>
                     </select>
-                    <input class="form-control me-2" type="search" name="q" placeholder="Search" aria-label="Search">
+                    <input class="form-control me-2" type="search" name="q" id="searchInput" placeholder="Search" aria-label="Search" autocomplete="off">
                     <button class="btn btn-outline-light" type="submit">Search</button>
+                    <div id="searchResults" class="position-absolute bg-white text-dark shadow rounded" style="top: 100%; left: 0; right: 0; z-index: 1000; max-height: 400px; overflow-y: auto; display: none;"></div>
                 </form>
             </div>
         </div>
@@ -44,5 +45,77 @@
         &copy; <?= date('Y') ?> Lego Inventory
     </footer>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const searchInput = document.getElementById('searchInput');
+            const searchType = document.getElementById('searchType');
+            const searchResults = document.getElementById('searchResults');
+            let debounceTimer;
+
+            searchInput.addEventListener('input', function() {
+                const query = this.value.trim();
+                const type = searchType.value;
+
+                clearTimeout(debounceTimer);
+                
+                if (query.length < 2) {
+                    searchResults.style.display = 'none';
+                    searchResults.innerHTML = '';
+                    return;
+                }
+
+                debounceTimer = setTimeout(() => {
+                    fetch(`/api/search?q=${encodeURIComponent(query)}&type=${type}`)
+                        .then(response => response.json())
+                        .then(data => {
+                            searchResults.innerHTML = '';
+                            if (data.length > 0) {
+                                const list = document.createElement('div');
+                                list.className = 'list-group list-group-flush';
+                                
+                                data.forEach(item => {
+                                    const a = document.createElement('a');
+                                    a.className = 'list-group-item list-group-item-action d-flex align-items-center';
+                                    
+                                    let imgUrl = item.img_url;
+                                    if (!imgUrl || (!imgUrl.startsWith('/images') && !imgUrl.startsWith('/parts_images'))) {
+                                        imgUrl = '/images/no-image.png';
+                                    }
+                                    
+                                    const linkUrl = type === 'sets' ? `/sets/${item.set_num}` : `/parts/${item.part_num}`;
+                                    const itemNum = type === 'sets' ? item.set_num : item.part_num;
+                                    
+                                    a.href = linkUrl;
+                                    a.innerHTML = `
+                                        <img src="${imgUrl}" alt="${item.name}" class="me-3" style="width: 40px; height: 40px; object-fit: contain;">
+                                        <div>
+                                            <div class="fw-bold text-truncate" style="max-width: 200px;">${item.name}</div>
+                                            <small class="text-muted">${itemNum}</small>
+                                        </div>
+                                    `;
+                                    list.appendChild(a);
+                                });
+                                
+                                searchResults.appendChild(list);
+                                searchResults.style.display = 'block';
+                            } else {
+                                searchResults.innerHTML = '<div class="p-3 text-muted">No results found</div>';
+                                searchResults.style.display = 'block';
+                            }
+                        })
+                        .catch(err => {
+                            console.error('Search error:', err);
+                        });
+                }, 300);
+            });
+
+            // Hide results when clicking outside
+            document.addEventListener('click', function(e) {
+                if (!document.getElementById('searchForm').contains(e.target)) {
+                    searchResults.style.display = 'none';
+                }
+            });
+        });
+    </script>
 </body>
 </html>
