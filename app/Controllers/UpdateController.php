@@ -374,6 +374,11 @@ class UpdateController extends Controller {
         ]);
     }
 
+    public function redirectBack(): void {
+        header('Location: /admin/update');
+        exit;
+    }
+
     public function downloadMissingImages(): void {
         $this->requirePost();
         if (!\App\Core\Security::verifyCsrf($_POST['csrf'] ?? null)) {
