@@ -223,69 +223,112 @@
         </div>
         <pre id="logText" class="m-0 text-light" style="white-space: pre-wrap;"></pre>
       </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" id="modalCloseBtnBottom" disabled>Close</button>
-      </div>
-    </div>
-  </div>
-</div>
+      <div class="modal-footer justify-content-between">
+                <div>
+                    <button type="button" class="btn btn-warning" id="pauseBtn" disabled>Pause</button>
+                    <button type="button" class="btn btn-success" id="resumeBtn" style="display:none;">Resume</button>
+                </div>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" id="modalCloseBtnBottom" disabled>Close</button>
+              </div>
+            </div>
+          </div>
+        </div>
 
-<script>
-function startDownload(type, csrf) {
-    const modal = new bootstrap.Modal(document.getElementById('logModal'));
-    const logText = document.getElementById('logText');
-    const spinner = document.getElementById('loaderSpinner');
-    const closeBtns = [document.getElementById('modalCloseBtn'), document.getElementById('modalCloseBtnBottom')];
-    
-    logText.textContent = '';
-    spinner.style.display = 'flex';
-    closeBtns.forEach(btn => btn.disabled = true);
-    modal.show();
-
-    const formData = new FormData();
-    formData.append('type', type);
-    formData.append('csrf', csrf);
-
-    fetch('/admin/update/download-images', {
-        method: 'POST',
-        body: formData
-    }).then(response => {
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder();
+        <script>
+        let controller = null;
+        let isPaused = false;
         
-        function read() {
-            reader.read().then(({done, value}) => {
-                if (done) {
-                    spinner.style.display = 'none';
-                    closeBtns.forEach(btn => btn.disabled = false);
-                    logText.textContent += '\nProcess Finished.';
-                    const container = document.getElementById('logContent');
-                    container.scrollTop = container.scrollHeight;
-                    closeBtns.forEach(btn => {
-                        btn.onclick = () => window.location.reload();
+        function startDownload(type, csrf) {
+            const modal = new bootstrap.Modal(document.getElementById('logModal'));
+            const logText = document.getElementById('logText');
+            const spinner = document.getElementById('loaderSpinner');
+            const closeBtns = [document.getElementById('modalCloseBtn'), document.getElementById('modalCloseBtnBottom')];
+            const pauseBtn = document.getElementById('pauseBtn');
+            const resumeBtn = document.getElementById('resumeBtn');
+            
+            // Reset UI
+            if (!isPaused) {
+                logText.textContent = '';
+            }
+            spinner.style.display = 'flex';
+            closeBtns.forEach(btn => btn.disabled = true);
+            pauseBtn.disabled = false;
+            pauseBtn.style.display = 'inline-block';
+            resumeBtn.style.display = 'none';
+            modal.show();
+
+            controller = new AbortController();
+            const signal = controller.signal;
+
+            const formData = new FormData();
+            formData.append('type', type);
+            formData.append('csrf', csrf);
+
+            fetch('/admin/update/download-images', {
+                method: 'POST',
+                body: formData,
+                signal: signal
+            }).then(response => {
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                
+                function read() {
+                    reader.read().then(({done, value}) => {
+                        if (done) {
+                            if (!isPaused) {
+                                spinner.style.display = 'none';
+                                closeBtns.forEach(btn => btn.disabled = false);
+                                pauseBtn.disabled = true;
+                                logText.textContent += '\nProcess Finished.';
+                                const container = document.getElementById('logContent');
+                                container.scrollTop = container.scrollHeight;
+                                closeBtns.forEach(btn => {
+                                    btn.onclick = () => window.location.reload();
+                                });
+                            }
+                            return;
+                        }
+                        
+                        const chunk = decoder.decode(value, {stream: true});
+                        logText.textContent += chunk;
+                        
+                        // Limit log size to prevent browser crash (keep last 50k chars)
+                        if (logText.textContent.length > 50000) {
+                            logText.textContent = logText.textContent.substring(logText.textContent.length - 50000);
+                        }
+
+                        const container = document.getElementById('logContent');
+                        container.scrollTop = container.scrollHeight;
+                        
+                        read();
                     });
-                    return;
                 }
-                
-                const chunk = decoder.decode(value, {stream: true});
-                logText.textContent += chunk;
-                
-                const container = document.getElementById('logContent');
-                container.scrollTop = container.scrollHeight;
-                
                 read();
+            }).catch(err => {
+                if (err.name === 'AbortError') {
+                    logText.textContent += '\n[PAUSED] Download stopped by user. Click Resume to continue.';
+                } else {
+                    logText.textContent += '\nError: ' + err;
+                }
+                spinner.style.display = 'none';
+                closeBtns.forEach(btn => btn.disabled = false);
             });
+
+            pauseBtn.onclick = () => {
+                isPaused = true;
+                controller.abort();
+                pauseBtn.style.display = 'none';
+                resumeBtn.style.display = 'inline-block';
+            };
+
+            resumeBtn.onclick = () => {
+                isPaused = false;
+                startDownload(type, csrf);
+            };
+            
+            return false;
         }
-        read();
-    }).catch(err => {
-        logText.textContent += '\nError: ' + err;
-        spinner.style.display = 'none';
-        closeBtns.forEach(btn => btn.disabled = false);
-    });
-    
-    return false;
-}
-</script>
+        </script>
 
 <?php if (!empty($detail_items) && !empty($detail_type) && !empty($detail_segment)): ?>
 <div class="modal fade" id="imageDetailModal" tabindex="-1" aria-hidden="true">
