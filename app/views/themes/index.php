@@ -1,14 +1,40 @@
 <h2>All Themes (Tree View)</h2>
 
 <style>
+.theme-tree-container {
+    column-count: 3;
+    column-gap: 20px;
+}
+@media (max-width: 992px) {
+    .theme-tree-container {
+        column-count: 2;
+    }
+}
+@media (max-width: 576px) {
+    .theme-tree-container {
+        column-count: 1;
+    }
+}
 .theme-tree ul {
     list-style-type: none;
     padding-left: 20px;
+    margin: 0;
+}
+/* Ensure top-level items don't break across columns */
+.theme-tree > ul > li {
+    break-inside: avoid;
+    page-break-inside: avoid;
+    margin-bottom: 15px;
+    border: 1px solid #eee;
+    padding: 10px;
+    border-radius: 5px;
+    background-color: #fafafa;
 }
 .theme-tree li {
-    margin: 5px 0;
+    margin: 3px 0;
     position: relative;
 }
+/* Connector lines for nested items */
 .theme-tree li::before {
     content: '';
     position: absolute;
@@ -17,29 +43,23 @@
     border-left: 1px solid #ccc;
     border-bottom: 1px solid #ccc;
     width: 15px;
-    height: 15px;
+    height: 12px;
 }
 .theme-tree > ul > li::before {
     display: none;
 }
+/* Hide root level connectors within the container */
+.theme-tree > ul {
+    padding-left: 0;
+}
+
 .theme-card {
     display: inline-block;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    padding: 5px 10px;
-    background: #fff;
-    min-width: 200px;
-}
-.theme-img {
-    height: 30px;
-    width: 30px;
-    object-fit: contain;
-    margin-right: 5px;
-    vertical-align: middle;
+    padding: 2px 5px;
 }
 </style>
 
-<div class="theme-tree">
+<div class="theme-tree theme-tree-container">
 <?php
 function renderTree($nodes) {
     if (empty($nodes)) return;
@@ -47,14 +67,9 @@ function renderTree($nodes) {
     foreach ($nodes as $theme) {
         echo '<li>';
         
-        $img = (!empty($theme->img_url) && (strpos($theme->img_url, '/images') === 0 || strpos($theme->img_url, '/parts_images') === 0)) 
-            ? htmlspecialchars($theme->img_url) 
-            : '/images/no-image.png';
-            
         echo '<div class="theme-card">';
-        echo '<img src="' . $img . '" class="theme-img" onerror="this.onerror=null; this.src=\'/images/no-image.png\';">';
         echo '<strong>' . htmlspecialchars($theme->name) . '</strong> ';
-        echo '<a href="/sets?theme_id=' . $theme->id . '" class="btn btn-sm btn-link">View Sets</a>';
+        echo '<a href="/sets?theme_id=' . $theme->id . '" class="btn btn-sm btn-link p-0" style="font-size: 0.85em;">Sets</a>';
         echo '</div>';
 
         if (!empty($theme->children)) {
