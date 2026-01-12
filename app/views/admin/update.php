@@ -209,7 +209,7 @@
   </div>
 
 <!-- Log Modal -->
-<div class="modal fade" id="logModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+<div class="modal fade" id="logModal" tabindex="-1" data-bs-backdrop="static">
   <div class="modal-dialog modal-lg">
     <div class="modal-content">
       <div class="modal-header">
@@ -347,6 +347,12 @@
                         }
                         
                         read();
+                    }).catch(error => {
+                        if (error.name === 'AbortError') {
+                            // Handled in outer catch or ignored as intentional
+                            return;
+                        }
+                        throw error;
                     });
                 }
                 read();
@@ -362,7 +368,9 @@
 
             pauseBtn.onclick = () => {
                 isPaused = true;
-                controller.abort();
+                if (controller) {
+                    controller.abort();
+                }
                 pauseBtn.style.display = 'none';
                 resumeBtn.style.display = 'inline-block';
             };
