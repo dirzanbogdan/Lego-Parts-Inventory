@@ -154,7 +154,6 @@ class UpdateController extends Controller {
                                     $hasTheme = $checkTheme->fetchColumn() !== false;
                                 }
                             }
-                            $hasTheme = false;
                             $log[] = "Sample: file={$filename}, rel={$relPath}, part=" . ($hasPart ? 'Y' : 'N') . ", set=" . ($hasSet ? 'Y' : 'N') . ", theme=" . ($hasTheme ? 'Y' : 'N');
                             $samples++;
                         }
