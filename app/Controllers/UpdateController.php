@@ -73,39 +73,84 @@ class UpdateController extends Controller {
         
         $log[] = "Schema verified (img_url columns checked).";
 
-        // 2. Scan Parts
+        // 2. Scan recursively starting from public/images (or best guess)
         $baseImagesDir = $this->findBestImagesDir($log);
+        
         if ($baseImagesDir) {
-            $log[] = "Selected images directory: $baseImagesDir";
+            $log[] = "Scanning directory recursively: $baseImagesDir";
             
-            // Scan Parts
-            $partsDir = $this->findSubDir($baseImagesDir, ['parts', 'Parts']);
-            if ($partsDir) {
-                $count = $this->scanAndLink($pdo, $partsDir, 'parts', 'part_num');
-                $log[] = "Parts: Linked $count local images from $partsDir.";
-            } else {
-                $log[] = "Parts: Sub-directory 'parts' or 'Parts' not found in $baseImagesDir.";
+            $stats = [
+                'parts' => 0,
+                'sets' => 0,
+                'themes' => 0
+            ];
+
+            // Create iterators
+            $dirIterator = new \RecursiveDirectoryIterator($baseImagesDir, \RecursiveDirectoryIterator::SKIP_DOTS);
+            $iterator = new \RecursiveIteratorIterator($dirIterator, \RecursiveIteratorIterator::SELF_FIRST);
+
+            // Prepare statements
+            $stmtPart = $pdo->prepare("UPDATE parts SET img_url = ? WHERE part_num = ?");
+            $stmtSet = $pdo->prepare("UPDATE sets SET img_url = ? WHERE set_num = ?");
+            $stmtTheme = $pdo->prepare("UPDATE themes SET img_url = ? WHERE id = ?");
+            
+            // Normalize base dir for path calculation
+            $realBase = realpath($baseImagesDir);
+            $normBase = str_replace('\\', '/', $realBase);
+
+            foreach ($iterator as $file) {
+                if ($file->isFile()) {
+                    $ext = strtolower($file->getExtension());
+                    if (in_array($ext, ['jpg', 'jpeg', 'png', 'gif', 'webp'])) {
+                        $filename = $file->getBasename('.' . $file->getExtension());
+                        
+                        // Calculate relative path
+                        $fullPath = $file->getPathname();
+                        $normFull = str_replace('\\', '/', $fullPath);
+                        
+                        // Default to /images prefix
+                        // If normBase is found in normFull, replace it
+                        if (strpos($normFull, $normBase) === 0) {
+                            $relFromBase = substr($normFull, strlen($normBase));
+                            $relPath = '/images' . $relFromBase;
+                        } else {
+                            // Fallback if path mismatch
+                            $relPath = '/images/' . $file->getFilename();
+                        }
+                        
+                        // Try matching Part
+                        $stmtPart->execute([$relPath, $filename]);
+                        if ($stmtPart->rowCount() > 0) {
+                            $stats['parts']++;
+                            continue;
+                        }
+
+                        // Try matching Set
+                        $stmtSet->execute([$relPath, $filename]);
+                        if ($stmtSet->rowCount() > 0) {
+                            $stats['sets']++;
+                            continue;
+                        }
+
+                        // Try matching Theme (ID)
+                        if (is_numeric($filename)) {
+                            $stmtTheme->execute([$relPath, $filename]);
+                            if ($stmtTheme->rowCount() > 0) {
+                                $stats['themes']++;
+                                continue;
+                            }
+                        }
+                    }
+                }
             }
 
-            // Scan Themes
-            $themesDir = $this->findSubDir($baseImagesDir, ['themes', 'Themes']);
-            if ($themesDir) {
-                $count = $this->scanAndLink($pdo, $themesDir, 'themes', 'id');
-                $log[] = "Themes: Linked $count local images from $themesDir.";
-            } else {
-                $log[] = "Themes: Sub-directory 'themes' or 'Themes' not found in $baseImagesDir.";
-            }
+            $log[] = "Scan complete.";
+            $log[] = "Parts updated: {$stats['parts']}";
+            $log[] = "Sets updated: {$stats['sets']}";
+            $log[] = "Themes updated: {$stats['themes']}";
 
-            // Scan Sets
-            $setsDir = $this->findSubDir($baseImagesDir, ['sets', 'Sets']);
-            if ($setsDir) {
-                $count = $this->scanAndLink($pdo, $setsDir, 'sets', 'set_num', 'img_url');
-                $log[] = "Sets: Linked $count local images from $setsDir.";
-            } else {
-                $log[] = "Sets: Sub-directory 'sets' or 'Sets' not found in $baseImagesDir.";
-            }
         } else {
-            $log[] = "Error: Could not find a valid 'images' directory with content. Checked standard paths.";
+            $log[] = "Error: Could not find a valid 'images' directory. Checked standard paths.";
         }
 
         // Return view with log
