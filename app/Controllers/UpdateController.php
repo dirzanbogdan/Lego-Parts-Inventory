@@ -84,6 +84,7 @@ class UpdateController extends Controller {
                 'sets' => 0,
                 'themes' => 0
             ];
+            $samples = 0;
 
             // Create iterators
             $dirIterator = new \RecursiveDirectoryIterator($baseImagesDir, \RecursiveDirectoryIterator::SKIP_DOTS);
@@ -93,6 +94,9 @@ class UpdateController extends Controller {
             $stmtPart = $pdo->prepare("UPDATE parts SET img_url = ? WHERE part_num = ?");
             $stmtSet = $pdo->prepare("UPDATE sets SET img_url = ? WHERE set_num = ?");
             $stmtTheme = $pdo->prepare("UPDATE themes SET img_url = ? WHERE id = ?");
+            $checkPart = $pdo->prepare("SELECT 1 FROM parts WHERE part_num = ? LIMIT 1");
+            $checkSet = $pdo->prepare("SELECT 1 FROM sets WHERE set_num = ? LIMIT 1");
+            $checkTheme = $pdo->prepare("SELECT 1 FROM themes WHERE id = ? LIMIT 1");
             
             // Normalize base dir for path calculation
             $realBase = realpath($baseImagesDir);
@@ -116,6 +120,20 @@ class UpdateController extends Controller {
                         } else {
                             // Fallback if path mismatch
                             $relPath = '/images/' . $file->getFilename();
+                        }
+
+                        if ($samples < 20) {
+                            $checkPart->execute([$filename]);
+                            $hasPart = $checkPart->fetchColumn() !== false;
+                            $checkSet->execute([$filename]);
+                            $hasSet = $checkSet->fetchColumn() !== false;
+                            $hasTheme = false;
+                            if (is_numeric($filename)) {
+                                $checkTheme->execute([$filename]);
+                                $hasTheme = $checkTheme->fetchColumn() !== false;
+                            }
+                            $log[] = "Sample: file={$filename}, rel={$relPath}, part=" . ($hasPart ? 'Y' : 'N') . ", set=" . ($hasSet ? 'Y' : 'N') . ", theme=" . ($hasTheme ? 'Y' : 'N');
+                            $samples++;
                         }
                         
                         // Try matching Part
