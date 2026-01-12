@@ -23,6 +23,9 @@ class UpdateController extends Controller {
             'status' => $status,
             'last_backup' => $this->lastBackupPath(),
             'csrf' => Security::csrfToken(),
+            'latest_debug_sets' => $this->latestDebugUrl('sets'),
+            'latest_debug_parts' => $this->latestDebugUrl('parts'),
+            'latest_debug_themes' => $this->latestDebugUrl('themes'),
         ]);
     }
     public function gitPull(): void {
@@ -293,6 +296,9 @@ class UpdateController extends Controller {
             'detail_type' => $type,
             'detail_segment' => $segment,
             'detail_items' => $detailItems,
+            'latest_debug_sets' => $this->latestDebugUrl('sets'),
+            'latest_debug_parts' => $this->latestDebugUrl('parts'),
+            'latest_debug_themes' => $this->latestDebugUrl('themes'),
         ]);
     }
 
@@ -361,7 +367,10 @@ class UpdateController extends Controller {
             'csrf' => Security::csrfToken(),
             'debug_file' => $downloadUrl,
             'debug_type' => $type,
-            'active_tab' => $type
+            'active_tab' => $type,
+            'latest_debug_sets' => $this->latestDebugUrl('sets'),
+            'latest_debug_parts' => $this->latestDebugUrl('parts'),
+            'latest_debug_themes' => $this->latestDebugUrl('themes'),
         ]);
     }
 
@@ -552,5 +561,19 @@ class UpdateController extends Controller {
         if (!$files) return null;
         rsort($files);
         return '/backups/' . $files[0];
+    }
+    private function latestDebugUrl(string $type): ?string {
+        $dir = __DIR__ . '/../../public/debug';
+        if (!is_dir($dir)) return null;
+        $files = array_values(array_filter(scandir($dir) ?: [], function($f) use ($type){
+            return strpos($f, 'debug_' . $type . '_') === 0 && preg_match('/\\.csv$/', $f);
+        }));
+        if (!$files) return null;
+        usort($files, function($a, $b) use ($dir){
+            $pa = $dir . '/' . $a;
+            $pb = $dir . '/' . $b;
+            return filemtime($pb) <=> filemtime($pa);
+        });
+        return '/debug/' . $files[0];
     }
 }

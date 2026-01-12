@@ -99,6 +99,11 @@
             </div>
             <div class="col">CDN: <strong><?php echo (int)$stats_sets['cdn']; ?></strong></div>
           </div>
+          <?php if (!empty($latest_debug_sets)): ?>
+            <div class="mt-2">
+              <a href="<?php echo htmlspecialchars($latest_debug_sets); ?>" target="_blank">Descarcă ultimul CSV Sets</a>
+            </div>
+          <?php endif; ?>
         <?php endif; ?>
       </div>
       <div class="tab-pane <?php echo $activeTab === 'parts' ? 'show active' : ''; ?>" id="tab-parts" role="tabpanel">
@@ -130,6 +135,11 @@
             </div>
             <div class="col">CDN: <strong><?php echo (int)$stats_parts['cdn']; ?></strong></div>
           </div>
+          <?php if (!empty($latest_debug_parts)): ?>
+            <div class="mt-2">
+              <a href="<?php echo htmlspecialchars($latest_debug_parts); ?>" target="_blank">Descarcă ultimul CSV Parts</a>
+            </div>
+          <?php endif; ?>
         <?php endif; ?>
       </div>
       <div class="tab-pane <?php echo $activeTab === 'themes' ? 'show active' : ''; ?>" id="tab-themes" role="tabpanel">

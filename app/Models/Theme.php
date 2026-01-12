@@ -29,4 +29,10 @@ class Theme {
         $pdo = Config::db();
         return (int)$pdo->query("SELECT COUNT(*) FROM themes")->fetchColumn();
     }
+
+    public static function getAll(): array {
+        $pdo = Config::db();
+        $stmt = $pdo->query("SELECT * FROM themes ORDER BY name ASC");
+        return $stmt->fetchAll(PDO::FETCH_CLASS, self::class);
+    }
 }
