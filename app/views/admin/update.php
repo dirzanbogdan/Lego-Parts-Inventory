@@ -147,11 +147,18 @@
             </div>
             <div class="col">CDN: <strong><?php echo (int)$stats_parts['cdn']; ?></strong></div>
           </div>
-          <form method="post" action="/admin/update/export-debug" class="mt-3">
-            <input type="hidden" name="csrf" value="<?php echo htmlspecialchars($csrf); ?>">
-            <input type="hidden" name="type" value="parts">
-            <button type="submit" class="btn btn-warning btn-sm">Export Debug CSV (Lipsa Local)</button>
-          </form>
+          <div class="mt-3 d-flex gap-2">
+            <form method="post" action="/admin/update/export-debug">
+              <input type="hidden" name="csrf" value="<?php echo htmlspecialchars($csrf); ?>">
+              <input type="hidden" name="type" value="parts">
+              <button type="submit" class="btn btn-warning btn-sm">Export Debug CSV (Lipsa Local)</button>
+            </form>
+            <form method="post" action="/admin/update/download-images">
+              <input type="hidden" name="csrf" value="<?php echo htmlspecialchars($csrf); ?>">
+              <input type="hidden" name="type" value="parts">
+              <button type="submit" class="btn btn-success btn-sm" onclick="return confirm('Download images from CDN? This may take a while.');">Download Missing Images</button>
+            </form>
+          </div>
           <?php if (!empty($latest_debug_parts)): ?>
             <div class="mt-2">
               <a href="<?php echo htmlspecialchars($latest_debug_parts); ?>" target="_blank">Descarcă ultimul CSV Parts</a>
