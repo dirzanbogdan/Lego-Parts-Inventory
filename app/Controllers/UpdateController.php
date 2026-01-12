@@ -374,6 +374,104 @@ class UpdateController extends Controller {
         ]);
     }
 
+    public function downloadMissingImages(): void {
+        $this->requirePost();
+        if (!\App\Core\Security::verifyCsrf($_POST['csrf'] ?? null)) {
+            http_response_code(400);
+            echo 'bad request';
+            return;
+        }
+
+        set_time_limit(0); // Unlimited time
+        
+        $type = $_POST['type'] ?? 'sets';
+        $pdo = Config::db();
+        
+        // Target directory: public/images/{type}
+        $targetDir = __DIR__ . '/../../public/images/' . $type;
+        if (!is_dir($targetDir)) {
+            mkdir($targetDir, 0777, true);
+        }
+
+        // Select items with external URL
+        $sql = "";
+        if ($type === 'sets') {
+            $sql = "SELECT set_num as id, img_url FROM sets WHERE img_url LIKE 'http%'";
+        } elseif ($type === 'parts') {
+            $sql = "SELECT part_num as id, img_url FROM parts WHERE img_url LIKE 'http%'";
+        } elseif ($type === 'themes') {
+            $sql = "SELECT id, img_url FROM themes WHERE img_url LIKE 'http%'";
+        } else {
+            header('Location: /admin/update');
+            return;
+        }
+
+        $stmt = $pdo->query($sql);
+        $downloaded = 0;
+        $failed = 0;
+        $skipped = 0;
+
+        $updateStmt = null;
+        if ($type === 'sets') {
+            $updateStmt = $pdo->prepare("UPDATE sets SET img_url = ? WHERE set_num = ?");
+        } elseif ($type === 'parts') {
+            $updateStmt = $pdo->prepare("UPDATE parts SET img_url = ? WHERE part_num = ?");
+        } elseif ($type === 'themes') {
+            $updateStmt = $pdo->prepare("UPDATE themes SET img_url = ? WHERE id = ?");
+        }
+
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            $id = $row['id'];
+            $url = $row['img_url'];
+            
+            // Determine extension
+            $ext = 'jpg';
+            if (preg_match('/\.(\w{3,4})$/', $url, $m)) {
+                $ext = $m[1];
+            }
+            
+            // Sanitize filename (replace invalid chars)
+            $safeId = str_replace(['/', '\\', ':', '*', '?', '"', '<', '>', '|'], '_', $id);
+            $filename = $safeId . '.' . $ext;
+            
+            $localPath = $targetDir . '/' . $filename;
+            $webPath = '/images/' . $type . '/' . $filename;
+
+            if (file_exists($localPath) && filesize($localPath) > 0) {
+                // File exists, just update DB
+                $updateStmt->execute([$webPath, $id]);
+                $skipped++;
+                continue;
+            }
+
+            // Download
+            $context = stream_context_create([
+                'http' => [
+                    'header' => "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64)\r\n"
+                ]
+            ]);
+            $content = @file_get_contents($url, false, $context);
+            
+            if ($content !== false) {
+                file_put_contents($localPath, $content);
+                $updateStmt->execute([$webPath, $id]);
+                $downloaded++;
+            } else {
+                $failed++;
+            }
+        }
+
+        $log = "Download complete for $type.\nDownloaded: $downloaded\nSkipped (already local): $skipped\nFailed: $failed";
+        
+        // Reuse scanImages view logic or redirect
+        $this->view('admin/update', [
+            'scan_log' => $log,
+            'csrf' => Security::csrfToken(),
+            'local' => '', 'remote' => '', 'local_short' => '', 'remote_short' => '', 'status' => '', 'last_backup' => '',
+            'active_tab' => $type
+        ]);
+    }
+
     private function findBestImagesDir(array &$log): ?string {
         $candidates = [
             __DIR__ . '/../../parts and sets/png',

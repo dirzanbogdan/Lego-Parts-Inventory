@@ -25,5 +25,6 @@ $router->post('/admin/update/pull', [UpdateController::class, 'gitPull']);
 $router->post('/admin/update/scan-images', [UpdateController::class, 'scanImages']);
 $router->post('/admin/update/image-stats', [UpdateController::class, 'imageStats']);
 $router->post('/admin/update/export-debug', [UpdateController::class, 'exportDebug']);
+$router->post('/admin/update/download-images', [UpdateController::class, 'downloadMissingImages']);
 
 $router->resolve();
