@@ -82,12 +82,19 @@ class UpdateController extends Controller {
             $webBase = '/images';
             $realBase = realpath($baseImagesDir) ?: $baseImagesDir;
             $normRealBase = str_replace('\\', '/', $realBase);
+            $isPartsImagesScan = false;
             if (strpos($normRealBase, '/parts and sets/') !== false || strpos($normRealBase, '/parts%20and%20sets/') !== false) {
                 $webBase = '/parts_images';
+                $isPartsImagesScan = true;
             } elseif (strpos($normRealBase, '/parts and sets') !== false) {
                 $webBase = '/parts_images';
+                $isPartsImagesScan = true;
             }
             $log[] = "Using web prefix: $webBase";
+            if ($isPartsImagesScan) {
+                $pdo->exec("UPDATE themes SET img_url = NULL WHERE img_url LIKE '/parts_images/%'");
+                $log[] = "Cleared theme images pointing to /parts_images (avoids part photos on themes).";
+            }
             
             $stats = [
                 'parts' => 0,
@@ -149,12 +156,12 @@ class UpdateController extends Controller {
                                 $hasPart = $hasPart || ($checkPart->fetchColumn() !== false);
                                 $checkSet->execute([$cid]);
                                 $hasSet = $hasSet || ($checkSet->fetchColumn() !== false);
-                                if (!$hasTheme && is_numeric($cid)) {
+                                if (!$isPartsImagesScan && !$hasTheme && is_numeric($cid)) {
                                     $checkTheme->execute([$cid]);
                                     $hasTheme = $checkTheme->fetchColumn() !== false;
                                 }
                             }
-                            $log[] = "Sample: file={$filename}, rel={$relPath}, part=" . ($hasPart ? 'Y' : 'N') . ", set=" . ($hasSet ? 'Y' : 'N') . ", theme=" . ($hasTheme ? 'Y' : 'N');
+                            $log[] = "Sample: file={$filename}, rel={$relPath}, part=" . ($hasPart ? 'Y' : 'N') . ", set=" . ($hasSet ? 'Y' : 'N') . ", theme=" . ($isPartsImagesScan ? 'N' : ($hasTheme ? 'Y' : 'N'));
                             $samples++;
                         }
                         
@@ -176,13 +183,15 @@ class UpdateController extends Controller {
                             }
                         }
 
-                        // Try matching Theme (ID)
-                        foreach ($candidateIds as $cid) {
-                            if (is_numeric($cid)) {
-                                $stmtTheme->execute([$relPath, $cid]);
-                                if ($stmtTheme->rowCount() > 0) {
-                                    $stats['themes']++;
-                                    continue 2;
+                        // Try matching Theme (ID) – only when not scanning parts_images
+                        if (!$isPartsImagesScan) {
+                            foreach ($candidateIds as $cid) {
+                                if (is_numeric($cid)) {
+                                    $stmtTheme->execute([$relPath, $cid]);
+                                    if ($stmtTheme->rowCount() > 0) {
+                                        $stats['themes']++;
+                                        continue 2;
+                                    }
                                 }
                             }
                         }
