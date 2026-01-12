@@ -349,7 +349,13 @@
                         read();
                     }).catch(error => {
                         if (error.name === 'AbortError') {
-                            // Handled in outer catch or ignored as intentional
+                            logText.textContent += '\n[PAUSED] Download stopped by user. Click Resume to continue.';
+                            spinner.style.display = 'none';
+                            closeBtns.forEach(btn => {
+                                btn.disabled = false;
+                                // Reload page on close to ensure clean state
+                                btn.onclick = () => window.location.reload();
+                            });
                             return;
                         }
                         throw error;
