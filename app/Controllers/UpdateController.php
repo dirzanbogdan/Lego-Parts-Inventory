@@ -379,6 +379,67 @@ class UpdateController extends Controller {
         exit;
     }
 
+    public function populateThemeUrls(): void {
+        $this->requirePost();
+        if (!\App\Core\Security::verifyCsrf($_POST['csrf'] ?? null)) {
+            http_response_code(400);
+            echo 'bad request';
+            return;
+        }
+
+        $pdo = Config::db();
+        
+        // Populate themes using representative set images
+        // We select the set with the most parts for each theme as the representative
+        $sql = "
+            UPDATE themes t
+            JOIN (
+                SELECT s1.theme_id, s1.img_url
+                FROM sets s1
+                LEFT JOIN sets s2 ON s1.theme_id = s2.theme_id AND s1.num_parts < s2.num_parts
+                WHERE s2.set_num IS NULL AND s1.img_url LIKE 'http%'
+            ) s ON t.id = s.theme_id
+            SET t.img_url = s.img_url
+            WHERE t.img_url IS NULL OR t.img_url = ''
+        ";
+        
+        // Since the above query is complex and might be slow or not supported by all MySQL versions/modes
+        // Let's use a safer approach with a subquery update or PHP loop if needed.
+        // But for simplicity and performance on typical MySQL, let's try a simpler JOIN update first.
+        // A more robust query for 'max parts set per theme':
+        
+        $sql = "
+            UPDATE themes t
+            INNER JOIN (
+               SELECT theme_id, img_url 
+               FROM sets 
+               WHERE (theme_id, num_parts) IN (
+                   SELECT theme_id, MAX(num_parts)
+                   FROM sets
+                   WHERE img_url LIKE 'http%'
+                   GROUP BY theme_id
+               )
+               GROUP BY theme_id
+            ) s ON t.id = s.theme_id
+            SET t.img_url = s.img_url
+            WHERE (t.img_url IS NULL OR t.img_url = '')
+        ";
+
+        try {
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute();
+            $count = $stmt->rowCount();
+            
+            // Redirect back with success message (or just refresh)
+            // We can't easily pass a message without session flash, so we just redirect
+            header('Location: /admin/update');
+        } catch (\PDOException $e) {
+            // Log error
+            error_log("Populate Theme URLs Error: " . $e->getMessage());
+            header('Location: /admin/update');
+        }
+    }
+
     public function downloadMissingImages(): void {
         $this->requirePost();
         if (!\App\Core\Security::verifyCsrf($_POST['csrf'] ?? null)) {
@@ -494,15 +555,49 @@ class UpdateController extends Controller {
                 flush();
             }
 
-            // Download
-            $context = stream_context_create([
-                'http' => [
-                    'header' => "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64)\r\n"
-                ]
-            ]);
-            $content = @file_get_contents($url, false, $context);
+            // Download using CURL for better reliability and debug info
+            $content = false;
+            $errorMsg = '';
             
-            if ($content !== false) {
+            if (function_exists('curl_init')) {
+                $ch = curl_init();
+                curl_setopt($ch, CURLOPT_URL, $url);
+                curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+                curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+                curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false); // Try to be permissive with SSL
+                curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36');
+                curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+                
+                $content = curl_exec($ch);
+                if ($content === false) {
+                    $errorMsg = curl_error($ch);
+                } else {
+                    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                    if ($httpCode !== 200) {
+                        $content = false;
+                        $errorMsg = "HTTP $httpCode";
+                    }
+                }
+                curl_close($ch);
+            } else {
+                // Fallback to file_get_contents
+                $context = stream_context_create([
+                    'http' => [
+                        'header' => "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64)\r\n"
+                    ],
+                    'ssl' => [
+                        'verify_peer' => false,
+                        'verify_peer_name' => false,
+                    ]
+                ]);
+                $content = @file_get_contents($url, false, $context);
+                if ($content === false) {
+                    $error = error_get_last();
+                    $errorMsg = $error['message'] ?? 'Unknown error';
+                }
+            }
+            
+            if ($content !== false && strlen($content) > 0) {
                 file_put_contents($localPath, $content);
                 $updateStmt->execute([$webPath, $id]);
                 $downloaded++;
@@ -513,7 +608,7 @@ class UpdateController extends Controller {
             } else {
                 $failed++;
                 if ($isStream) {
-                    echo "FAILED\n";
+                    echo "FAILED ($errorMsg)\n";
                     flush();
                 }
             }

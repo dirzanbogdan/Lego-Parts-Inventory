@@ -193,6 +193,10 @@
               <input type="hidden" name="type" value="themes">
               <button type="submit" class="btn btn-warning btn-sm">Export Debug CSV (Lipsa Local)</button>
             </form>
+            <form method="post" action="/admin/update/populate-theme-urls" class="d-inline">
+              <input type="hidden" name="csrf" value="<?php echo htmlspecialchars($csrf); ?>">
+              <button type="submit" class="btn btn-info btn-sm">Populează URL-uri CDN (din Seturi)</button>
+            </form>
             <button type="button" class="btn btn-success btn-sm" onclick="startDownload('themes', '<?php echo htmlspecialchars($csrf); ?>')">Download Missing Images</button>
           </div>
         <?php endif; ?>

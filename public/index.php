@@ -27,6 +27,7 @@ $router->post('/admin/update/image-stats', [UpdateController::class, 'imageStats
 $router->get('/admin/update/image-stats', [UpdateController::class, 'redirectBack']);
 $router->post('/admin/update/export-debug', [UpdateController::class, 'exportDebug']);
 $router->post('/admin/update/download-images', [UpdateController::class, 'downloadMissingImages']);
+$router->post('/admin/update/populate-theme-urls', [UpdateController::class, 'populateThemeUrls']);
 $router->get('/admin/update/download-images', [UpdateController::class, 'redirectBack']);
 
 $router->resolve();
