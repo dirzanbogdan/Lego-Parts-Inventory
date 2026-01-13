@@ -2,6 +2,7 @@
 namespace App\Controllers;
 use App\Core\Controller;
 use App\Core\Config;
+use App\Core\Security;
 use PDO;
 
 class MyController extends Controller {
@@ -10,6 +11,11 @@ class MyController extends Controller {
     public function addSet() {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             header('Location: /');
+            return;
+        }
+        if (!Security::verifyCsrf($_POST['csrf'] ?? null)) {
+            http_response_code(400);
+            echo 'bad request';
             return;
         }
         $set_num = $_POST['set_num'] ?? null;
@@ -22,6 +28,56 @@ class MyController extends Controller {
         $this->ensureUserSetsTable($pdo);
         $stmt = $pdo->prepare("INSERT INTO user_sets (user_id, set_num, quantity) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE quantity = quantity + VALUES(quantity)");
         $stmt->execute([$this->userId, $set_num, $quantity]);
+        header("Location: /my/sets");
+        exit;
+    }
+
+    public function updateSet() {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            header('Location: /my/sets');
+            return;
+        }
+        if (!Security::verifyCsrf($_POST['csrf'] ?? null)) {
+            http_response_code(400);
+            echo 'bad request';
+            return;
+        }
+        $set_num = $_POST['set_num'] ?? null;
+        $quantity = max(0, (int)($_POST['quantity'] ?? 0));
+        if (!$set_num) {
+            header('Location: /my/sets');
+            return;
+        }
+        $pdo = Config::db();
+        $this->ensureUserSetsTable($pdo);
+        if ($quantity === 0) {
+            $stmt = $pdo->prepare("DELETE FROM user_sets WHERE user_id = ? AND set_num = ?");
+            $stmt->execute([$this->userId, $set_num]);
+        } else {
+            $stmt = $pdo->prepare("UPDATE user_sets SET quantity = ? WHERE user_id = ? AND set_num = ?");
+            $stmt->execute([$quantity, $this->userId, $set_num]);
+        }
+        header("Location: /my/sets");
+        exit;
+    }
+
+    public function removeSet() {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            header('Location: /my/sets');
+            return;
+        }
+        if (!Security::verifyCsrf($_POST['csrf'] ?? null)) {
+            http_response_code(400);
+            echo 'bad request';
+            return;
+        }
+        $set_num = $_POST['set_num'] ?? null;
+        if ($set_num) {
+            $pdo = Config::db();
+            $this->ensureUserSetsTable($pdo);
+            $stmt = $pdo->prepare("DELETE FROM user_sets WHERE user_id = ? AND set_num = ?");
+            $stmt->execute([$this->userId, $set_num]);
+        }
         header("Location: /my/sets");
         exit;
     }

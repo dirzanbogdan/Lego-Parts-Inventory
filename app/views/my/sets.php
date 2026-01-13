@@ -19,7 +19,20 @@
                             <span class="text-muted"><?= htmlspecialchars($set['set_num']) ?> (<?= htmlspecialchars($set['year']) ?>)</span><br>
                             <span class="badge bg-secondary">Qty: <?= (int)$set['quantity'] ?></span>
                         </p>
-                        <a href="/sets/<?= htmlspecialchars($set['set_num']) ?>" class="btn btn-primary btn-sm">View</a>
+                        <div class="d-flex justify-content-center gap-2">
+                            <a href="/sets/<?= htmlspecialchars($set['set_num']) ?>" class="btn btn-primary btn-sm">View</a>
+                            <form action="/my/sets/update" method="POST" class="d-flex">
+                                <input type="hidden" name="csrf" value="<?= htmlspecialchars(\App\Core\Security::csrfToken()) ?>">
+                                <input type="hidden" name="set_num" value="<?= htmlspecialchars($set['set_num']) ?>">
+                                <input type="number" name="quantity" class="form-control form-control-sm" value="<?= (int)$set['quantity'] ?>" min="0" style="width: 80px;">
+                                <button type="submit" class="btn btn-sm btn-success">Save</button>
+                            </form>
+                            <form action="/my/sets/remove" method="POST" onsubmit="return confirm('Remove this set?');">
+                                <input type="hidden" name="csrf" value="<?= htmlspecialchars(\App\Core\Security::csrfToken()) ?>">
+                                <input type="hidden" name="set_num" value="<?= htmlspecialchars($set['set_num']) ?>">
+                                <button type="submit" class="btn btn-sm btn-outline-danger">Remove</button>
+                            </form>
+                        </div>
                     </div>
                 </div>
             </div>

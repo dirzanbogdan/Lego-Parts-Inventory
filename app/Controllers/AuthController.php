@@ -6,10 +6,10 @@ use App\Core\Security;
 use App\Models\User;
 class AuthController extends Controller {
     public function loginForm(): void {
-        $this->render('auth/login', []);
+        $this->view('auth/login', ['csrf' => Security::csrfToken()]);
     }
     public function registerForm(): void {
-        $this->render('auth/register', []);
+        $this->view('auth/register', ['csrf' => Security::csrfToken()]);
     }
     public function login(): void {
         $this->requirePost();
@@ -26,7 +26,7 @@ class AuthController extends Controller {
             header('Location: /');
             return;
         }
-        $this->render('auth/login', ['error' => 'Login esuat']);
+        $this->view('auth/login', ['error' => 'Login esuat', 'csrf' => Security::csrfToken()]);
     }
     public function register(): void {
         $this->requirePost();
@@ -38,7 +38,7 @@ class AuthController extends Controller {
         $username = trim($_POST['username'] ?? '');
         $password = $_POST['password'] ?? '';
         if (!$username || !$password) {
-            $this->render('auth/register', ['error' => 'Date invalide']);
+            $this->view('auth/register', ['error' => 'Date invalide', 'csrf' => Security::csrfToken()]);
             return;
         }
         $ok = User::create($username, $password);
@@ -46,7 +46,7 @@ class AuthController extends Controller {
             header('Location: /login');
             return;
         }
-        $this->render('auth/register', ['error' => 'Inregistrare esuata']);
+        $this->view('auth/register', ['error' => 'Inregistrare esuata', 'csrf' => Security::csrfToken()]);
     }
     public function logout(): void {
         unset($_SESSION['user']);

@@ -9,6 +9,7 @@
         <p>Theme: <a href="/search?type=sets&q=<?= urlencode($set->theme_name ?? '') ?>"><?= htmlspecialchars($set->theme_name ?? $set->theme_id) ?></a></p>
         <p>Parts: <?= $set->num_parts ?></p>
         <form action="/my/sets/add" method="POST" class="mt-2">
+            <input type="hidden" name="csrf" value="<?= htmlspecialchars(\App\Core\Security::csrfToken()) ?>">
             <input type="hidden" name="set_num" value="<?= htmlspecialchars($set->set_num) ?>">
             <input type="hidden" name="quantity" value="1">
             <button type="submit" class="btn btn-success btn-sm">Add to My sets</button>

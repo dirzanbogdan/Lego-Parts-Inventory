@@ -8,8 +8,18 @@ use App\Controllers\PartsController;
 use App\Controllers\ThemesController;
 use App\Controllers\UpdateController;
 use App\Controllers\MyController;
+use App\Controllers\AuthController;
 
 $router = new Router();
+
+// Access control: require login for all non-auth routes; restrict admin update
+$path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+if (!in_array($path, ['/login', '/register', '/logout'])) {
+    \App\Core\Security::requireLogin();
+}
+if (strpos($path, '/admin/update') === 0) {
+    \App\Core\Security::requireRole('admin');
+}
 
 $router->get('/', [HomeController::class, 'index']);
 $router->get('/search', [HomeController::class, 'search']);
@@ -34,7 +44,16 @@ $router->get('/admin/update/download-images', [UpdateController::class, 'redirec
 
 // My collections
 $router->post('/my/sets/add', [MyController::class, 'addSet']);
+$router->post('/my/sets/update', [MyController::class, 'updateSet']);
+$router->post('/my/sets/remove', [MyController::class, 'removeSet']);
 $router->get('/my/sets', [MyController::class, 'mySets']);
 $router->get('/my/parts', [MyController::class, 'myParts']);
+
+// Auth
+$router->get('/login', [AuthController::class, 'loginForm']);
+$router->post('/login', [AuthController::class, 'login']);
+$router->get('/register', [AuthController::class, 'registerForm']);
+$router->post('/register', [AuthController::class, 'register']);
+$router->get('/logout', [AuthController::class, 'logout']);
 
 $router->resolve();
