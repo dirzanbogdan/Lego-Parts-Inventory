@@ -7,6 +7,7 @@ use App\Controllers\SetsController;
 use App\Controllers\PartsController;
 use App\Controllers\ThemesController;
 use App\Controllers\UpdateController;
+use App\Controllers\MyController;
 
 $router = new Router();
 
@@ -30,5 +31,10 @@ $router->post('/admin/update/export-debug', [UpdateController::class, 'exportDeb
 $router->post('/admin/update/download-images', [UpdateController::class, 'downloadMissingImages']);
 $router->post('/admin/update/populate-theme-urls', [UpdateController::class, 'populateThemeUrls']);
 $router->get('/admin/update/download-images', [UpdateController::class, 'redirectBack']);
+
+// My collections
+$router->post('/my/sets/add', [MyController::class, 'addSet']);
+$router->get('/my/sets', [MyController::class, 'mySets']);
+$router->get('/my/parts', [MyController::class, 'myParts']);
 
 $router->resolve();

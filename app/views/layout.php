@@ -22,6 +22,8 @@
                     <li class="nav-item"><a class="nav-link" href="/sets">Sets</a></li>
                     <li class="nav-item"><a class="nav-link" href="/parts">Parts</a></li>
                     <li class="nav-item"><a class="nav-link" href="/themes">Themes</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/my/sets">My sets</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/my/parts">My parts</a></li>
                     <li class="nav-item"><a class="nav-link" href="/admin/update">Update</a></li>
                 </ul>
                 <form class="d-flex position-relative" action="/search" method="get" id="searchForm">
