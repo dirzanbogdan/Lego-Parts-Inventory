@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 namespace App\Models;
-use App\Config\Config;
+use App\Core\Config;
 use PDO;
 class User {
     public static function findByUsername(string $username): ?array {

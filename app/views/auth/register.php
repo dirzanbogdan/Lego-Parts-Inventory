@@ -4,8 +4,8 @@
 <form method="post" action="/register">
   <input type="hidden" name="csrf" value="<?php echo htmlspecialchars($csrf); ?>">
   <label>Username</label>
-  <input type="text" name="username" required>
+  <input type="text" name="username" required autocomplete="username">
   <label>Parola</label>
-  <input type="password" name="password" required>
+  <input type="password" name="password" required autocomplete="new-password">
   <button type="submit">Creeaza</button>
 </form>
