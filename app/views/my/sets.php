@@ -1,4 +1,10 @@
 <h2>My Sets</h2>
+<?php if (!empty($error)): ?>
+    <div class="alert alert-danger"><?= htmlspecialchars($error) ?></div>
+<?php endif; ?>
+<?php if (!empty($success)): ?>
+    <div class="alert alert-success"><?= htmlspecialchars($success) ?></div>
+<?php endif; ?>
 <?php if (empty($sets)): ?>
     <p class="text-muted">Nu ai seturi adăugate încă.</p>
 <?php else: ?>
@@ -31,6 +37,11 @@
                                 <input type="hidden" name="csrf" value="<?= htmlspecialchars(\App\Core\Security::csrfToken()) ?>">
                                 <input type="hidden" name="set_num" value="<?= htmlspecialchars($set['set_num']) ?>">
                                 <button type="submit" class="btn btn-sm btn-outline-danger">Remove</button>
+                            </form>
+                            <form action="/my/sets/build" method="POST" onsubmit="return confirm('Construiești acest set? Vor fi scăzute piesele din My parts.');">
+                                <input type="hidden" name="csrf" value="<?= htmlspecialchars(\App\Core\Security::csrfToken()) ?>">
+                                <input type="hidden" name="set_num" value="<?= htmlspecialchars($set['set_num']) ?>">
+                                <button type="submit" class="btn btn-sm btn-warning">Built</button>
                             </form>
                         </div>
                     </div>

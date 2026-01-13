@@ -46,6 +46,7 @@ $router->get('/admin/update/download-images', [UpdateController::class, 'redirec
 $router->post('/my/sets/add', [MyController::class, 'addSet']);
 $router->post('/my/sets/update', [MyController::class, 'updateSet']);
 $router->post('/my/sets/remove', [MyController::class, 'removeSet']);
+$router->post('/my/sets/build', [MyController::class, 'buildSet']);
 $router->get('/my/sets', [MyController::class, 'mySets']);
 $router->get('/my/parts', [MyController::class, 'myParts']);
 

@@ -101,7 +101,9 @@ class MyController extends Controller {
         } catch (\Throwable $e) {
             $sets = [];
         }
-        $this->view('my/sets', ['sets' => $sets]);
+        $error = $_GET['error'] ?? null;
+        $success = $_GET['success'] ?? null;
+        $this->view('my/sets', ['sets' => $sets, 'error' => $error, 'success' => $success]);
     }
 
     public function myParts() {
@@ -153,5 +155,93 @@ class MyController extends Controller {
                 PRIMARY KEY (user_id, part_num, color_id)
             )
         ");
+    }
+
+    public function buildSet() {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            header('Location: /my/sets');
+            return;
+        }
+        if (!Security::verifyCsrf($_POST['csrf'] ?? null)) {
+            http_response_code(400);
+            echo 'bad request';
+            return;
+        }
+        $set_num = $_POST['set_num'] ?? null;
+        if (!$set_num) {
+            header('Location: /my/sets?error=' . urlencode('Set invalid'));
+            return;
+        }
+        $pdo = Config::db();
+        $this->ensureUserPartsTable($pdo);
+
+        // Fetch latest inventory for the set, excluding spare parts
+        $sql = "
+            SELECT 
+                ip.part_num, ip.color_id, ip.quantity, ip.is_spare,
+                p.part_cat_id, pc.name AS part_cat_name
+            FROM inventory_parts ip
+            JOIN parts p ON p.part_num = ip.part_num
+            LEFT JOIN part_categories pc ON pc.id = p.part_cat_id
+            WHERE ip.inventory_id = (
+                SELECT id FROM inventories WHERE set_num = ? ORDER BY version DESC LIMIT 1
+            )
+            AND ip.is_spare = 0
+        ";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([$set_num]);
+        $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        if (empty($items)) {
+            header('Location: /my/sets?error=' . urlencode('Inventar indisponibil pentru set'));
+            return;
+        }
+
+        // Determine missing items (exclude stickers)
+        $missing = [];
+        foreach ($items as $it) {
+            $isSticker = (isset($it['part_cat_name']) && $it['part_cat_name'] === 'Stickers') || (isset($it['part_cat_id']) && (int)$it['part_cat_id'] === 58);
+            if ($isSticker) {
+                continue;
+            }
+            $up = $pdo->prepare("SELECT quantity FROM user_parts WHERE user_id = ? AND part_num = ? AND color_id = ?");
+            $up->execute([$this->userId, $it['part_num'], $it['color_id']]);
+            $owned = (int)($up->fetchColumn() ?: 0);
+            if ($owned < (int)$it['quantity']) {
+                $missing[] = [
+                    'part_num' => $it['part_num'],
+                    'color_id' => $it['color_id'],
+                    'need' => (int)$it['quantity'],
+                    'have' => $owned
+                ];
+            }
+        }
+
+        if (!empty($missing)) {
+            $msg = 'Nu poți face build: lipsesc piese';
+            header('Location: /my/sets?error=' . urlencode($msg));
+            return;
+        }
+
+        // Deduct quantities atomically
+        try {
+            $pdo->beginTransaction();
+            foreach ($items as $it) {
+                $isSticker = (isset($it['part_cat_name']) && $it['part_cat_name'] === 'Stickers') || (isset($it['part_cat_id']) && (int)$it['part_cat_id'] === 58);
+                if ($isSticker) continue;
+                $qty = (int)$it['quantity'];
+                $upd = $pdo->prepare("
+                    UPDATE user_parts 
+                    SET quantity = quantity - ? 
+                    WHERE user_id = ? AND part_num = ? AND color_id = ? AND quantity >= ?
+                ");
+                $upd->execute([$qty, $this->userId, $it['part_num'], $it['color_id'], $qty]);
+            }
+            $pdo->commit();
+            header('Location: /my/sets?success=' . urlencode('Set construit. Piesele au fost scăzute.'));
+        } catch (\Throwable $e) {
+            if ($pdo->inTransaction()) $pdo->rollBack();
+            header('Location: /my/sets?error=' . urlencode('Eroare la scăderea pieselor'));
+        }
     }
 }
