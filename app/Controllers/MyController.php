@@ -88,7 +88,7 @@ class MyController extends Controller {
         $sets = [];
         try {
             $sql = "
-                SELECT us.set_num, us.quantity, s.name, s.year, s.img_url, t.name AS theme_name
+                SELECT us.set_num, us.quantity, us.built, s.name, s.year, s.img_url, t.name AS theme_name
                 FROM user_sets us
                 JOIN sets s ON s.set_num = us.set_num
                 LEFT JOIN themes t ON s.theme_id = t.id
@@ -143,6 +143,10 @@ class MyController extends Controller {
                 PRIMARY KEY (user_id, set_num)
             )
         ");
+        try {
+            $pdo->exec("ALTER TABLE user_sets ADD COLUMN built TINYINT(1) NOT NULL DEFAULT 0");
+        } catch (\Throwable $e) {
+        }
     }
 
     private function ensureUserPartsTable(PDO $pdo): void {
@@ -174,6 +178,15 @@ class MyController extends Controller {
         }
         $pdo = Config::db();
         $this->ensureUserPartsTable($pdo);
+        $this->ensureUserSetsTable($pdo);
+
+        $chk = $pdo->prepare("SELECT built FROM user_sets WHERE user_id = ? AND set_num = ? LIMIT 1");
+        $chk->execute([$this->userId, $set_num]);
+        $builtVal = $chk->fetchColumn();
+        if ($builtVal !== false && (int)$builtVal === 1) {
+            header('Location: /my/sets?error=' . urlencode('Set deja construit'));
+            return;
+        }
 
         // Fetch latest inventory for the set, excluding spare parts
         $sql = "
@@ -237,6 +250,8 @@ class MyController extends Controller {
                 ");
                 $upd->execute([$qty, $this->userId, $it['part_num'], $it['color_id'], $qty]);
             }
+            $mark = $pdo->prepare("UPDATE user_sets SET built = 1 WHERE user_id = ? AND set_num = ?");
+            $mark->execute([$this->userId, $set_num]);
             $pdo->commit();
             header('Location: /my/sets?success=' . urlencode('Set construit. Piesele au fost scăzute.'));
         } catch (\Throwable $e) {

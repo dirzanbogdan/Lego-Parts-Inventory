@@ -24,6 +24,9 @@
                         <p class="card-text mb-1" style="font-size: 0.85rem;">
                             <span class="text-muted"><?= htmlspecialchars($set['set_num']) ?> (<?= htmlspecialchars($set['year']) ?>)</span><br>
                             <span class="badge bg-secondary">Qty: <?= (int)$set['quantity'] ?></span>
+                            <?php if (!empty($set['built'])): ?>
+                                <span class="badge bg-success">Built</span>
+                            <?php endif; ?>
                         </p>
                         <div class="d-flex justify-content-center gap-2">
                             <a href="/sets/<?= htmlspecialchars($set['set_num']) ?>" class="btn btn-primary btn-sm">View</a>
@@ -38,11 +41,13 @@
                                 <input type="hidden" name="set_num" value="<?= htmlspecialchars($set['set_num']) ?>">
                                 <button type="submit" class="btn btn-sm btn-outline-danger">Remove</button>
                             </form>
-                            <form action="/my/sets/build" method="POST" onsubmit="return confirm('Construiești acest set? Vor fi scăzute piesele din My parts.');">
-                                <input type="hidden" name="csrf" value="<?= htmlspecialchars(\App\Core\Security::csrfToken()) ?>">
-                                <input type="hidden" name="set_num" value="<?= htmlspecialchars($set['set_num']) ?>">
-                                <button type="submit" class="btn btn-sm btn-warning">Built</button>
-                            </form>
+                            <?php if (empty($set['built'])): ?>
+                                <form action="/my/sets/build" method="POST" onsubmit="return confirm('Construiești acest set? Vor fi scăzute piesele din My parts.');">
+                                    <input type="hidden" name="csrf" value="<?= htmlspecialchars(\App\Core\Security::csrfToken()) ?>">
+                                    <input type="hidden" name="set_num" value="<?= htmlspecialchars($set['set_num']) ?>">
+                                    <button type="submit" class="btn btn-sm btn-warning">Built</button>
+                                </form>
+                            <?php endif; ?>
                         </div>
                     </div>
                 </div>
