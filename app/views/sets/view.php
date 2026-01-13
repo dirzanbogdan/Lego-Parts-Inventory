@@ -19,6 +19,11 @@
             <input type="hidden" name="set_num" value="<?= htmlspecialchars($set->set_num) ?>">
             <button type="submit" class="btn btn-outline-danger btn-sm">Remove from My sets</button>
         </form>
+        <form action="/my/sets/build" method="POST" class="mt-2" onsubmit="return confirm('Construiești acest set? Vor fi scăzute piesele din My parts.');">
+            <input type="hidden" name="csrf" value="<?= htmlspecialchars(\App\Core\Security::csrfToken()) ?>">
+            <input type="hidden" name="set_num" value="<?= htmlspecialchars($set->set_num) ?>">
+            <button type="submit" class="btn btn-warning btn-sm">Built</button>
+        </form>
     </div>
 </div>
 

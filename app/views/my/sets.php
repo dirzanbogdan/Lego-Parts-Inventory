@@ -28,7 +28,9 @@
                                 <span class="badge bg-success">Built</span>
                             <?php endif; ?>
                         </p>
-                        <div class="d-flex justify-content-center gap-2">
+                    </div>
+                    <div class="card-footer p-2">
+                        <div class="d-flex justify-content-center align-items-center gap-2">
                             <a href="/sets/<?= htmlspecialchars($set['set_num']) ?>" class="btn btn-primary btn-sm">View</a>
                             <form action="/my/sets/update" method="POST" class="d-flex">
                                 <input type="hidden" name="csrf" value="<?= htmlspecialchars(\App\Core\Security::csrfToken()) ?>">

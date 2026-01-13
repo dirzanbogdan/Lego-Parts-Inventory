@@ -187,6 +187,10 @@ class MyController extends Controller {
             header('Location: /my/sets?error=' . urlencode('Set deja construit'));
             return;
         }
+        if ($builtVal === false) {
+            $ins = $pdo->prepare("INSERT INTO user_sets (user_id, set_num, quantity) VALUES (?, ?, 1) ON DUPLICATE KEY UPDATE quantity = quantity");
+            $ins->execute([$this->userId, $set_num]);
+        }
 
         // Fetch latest inventory for the set, excluding spare parts
         $sql = "
