@@ -14,6 +14,11 @@
             <input type="hidden" name="quantity" value="1">
             <button type="submit" class="btn btn-success btn-sm">Add to My sets</button>
         </form>
+        <form action="/my/sets/remove" method="POST" class="mt-2" onsubmit="return confirm('Remove this set from My sets?');">
+            <input type="hidden" name="csrf" value="<?= htmlspecialchars(\App\Core\Security::csrfToken()) ?>">
+            <input type="hidden" name="set_num" value="<?= htmlspecialchars($set->set_num) ?>">
+            <button type="submit" class="btn btn-outline-danger btn-sm">Remove from My sets</button>
+        </form>
     </div>
 </div>
 
