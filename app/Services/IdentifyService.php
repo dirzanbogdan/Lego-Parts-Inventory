@@ -52,7 +52,19 @@ class IdentifyService {
         }
 
         $predictions = json_decode($response, true);
+        
+        // Debug API response structure
         if (!is_array($predictions)) {
+            error_log("Brickognize API: Invalid JSON response");
+            return [];
+        }
+
+        // Brickognize API sometimes returns wrapped structure: {"items": [...]} 
+        // OR a flat array of items. Let's handle both.
+        $items = isset($predictions['items']) ? $predictions['items'] : $predictions;
+        
+        if (!is_array($items)) {
+            error_log("Brickognize API: Unexpected structure: " . print_r($predictions, true));
             return [];
         }
 
@@ -66,7 +78,11 @@ class IdentifyService {
         // so we often have to assume a default color or let the user choose.
         // HOWEVER, sometimes the item has color info if it's a specific patterned part.
         
-        foreach ($predictions as $pred) {
+        foreach ($items as $pred) {
+            if (!isset($pred['score']) || !isset($pred['id'])) {
+                continue; // Skip malformed items
+            }
+
             // Skip low confidence
             $confidence = $pred['score'] * 100;
             if ($confidence < 20) continue; // Lower threshold as sometimes it's tricky
