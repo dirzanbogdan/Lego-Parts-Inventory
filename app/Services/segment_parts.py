@@ -1,0 +1,99 @@
+import cv2
+import sys
+import os
+import json
+import numpy as np
+
+def get_dominant_color(img, mask):
+    # Calculate mean color in the masked area
+    mean_val = cv2.mean(img, mask=mask)
+    # mean_val is (B, G, R, Alpha)
+    return "{:02x}{:02x}{:02x}".format(int(mean_val[2]), int(mean_val[1]), int(mean_val[0]))
+
+def segment_image(image_path, output_dir):
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+
+    # Load image
+    img = cv2.imread(image_path)
+    if img is None:
+        return json.dumps({"error": "Could not read image"})
+
+    # Convert to grayscale
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+
+    # Blur to reduce noise
+    blurred = cv2.GaussianBlur(gray, (5, 5), 0)
+
+    # Adaptive Thresholding
+    # Inverted because we want parts to be white (foreground)
+    thresh = cv2.adaptiveThreshold(blurred, 255, 
+                                 cv2.ADAPTIVE_THRESH_GAUSSIAN_C, 
+                                 cv2.THRESH_BINARY_INV, 19, 3)
+
+    # Morphological operations
+    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
+    closed = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel, iterations=2)
+    opened = cv2.morphologyEx(closed, cv2.MORPH_OPEN, kernel, iterations=1)
+
+    # Find contours
+    contours, _ = cv2.findContours(opened, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+    results = []
+    margin = 10 
+    min_area = 500 
+
+    for i, cnt in enumerate(contours):
+        area = cv2.contourArea(cnt)
+        if area < min_area:
+            continue
+
+        # Create mask for color extraction
+        mask = np.zeros(gray.shape, np.uint8)
+        cv2.drawContours(mask, [cnt], 0, 255, -1)
+
+        # Get bounding rect
+        x, y, w, h = cv2.boundingRect(cnt)
+        
+        # Crop mask and image for color calculation (optimization)
+        # Actually cv2.mean with full mask is fast enough
+        dominant_color_hex = get_dominant_color(img, mask)
+
+        # Add margin for crop image
+        x_m = max(0, x - margin)
+        y_m = max(0, y - margin)
+        w_m = min(img.shape[1] - x_m, w + 2*margin)
+        h_m = min(img.shape[0] - y_m, h + 2*margin)
+
+        # Crop
+        crop = img[y_m:y_m+h_m, x_m:x_m+w_m]
+        
+        # Save crop
+        crop_filename = f"crop_{i}.jpg"
+        crop_path = os.path.join(output_dir, crop_filename)
+        cv2.imwrite(crop_path, crop)
+
+        results.append({
+            "path": crop_path,
+            "x": x,
+            "y": y,
+            "w": w,
+            "h": h,
+            "area": area,
+            "color_hex": dominant_color_hex
+        })
+
+    return json.dumps(results)
+
+if __name__ == "__main__":
+    if len(sys.argv) < 3:
+        print(json.dumps({"error": "Usage: python segment_parts.py <image_path> <output_dir>"}))
+        sys.exit(1)
+
+    image_path = sys.argv[1]
+    output_dir = sys.argv[2]
+    
+    try:
+        print(segment_image(image_path, output_dir))
+    except Exception as e:
+        print(json.dumps({"error": str(e)}))
