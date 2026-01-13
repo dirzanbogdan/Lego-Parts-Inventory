@@ -83,10 +83,10 @@ class IdentifyService {
                 continue; // Skip malformed items
             }
 
-            // Skip low confidence
+            // Skip low confidence (lowered threshold to 10% to see more options)
             $confidence = $pred['score'] * 100;
-            if ($confidence < 20) continue; // Lower threshold as sometimes it's tricky
-            if (count($results) >= 5) break;
+            if ($confidence < 10) continue; 
+            if (count($results) >= 10) break; // Increased limit to 10
 
             $partNum = $pred['id']; // This is the LDraw/Rebrickable ID usually
             
@@ -113,14 +113,31 @@ class IdentifyService {
                     'color_name' => 'Unknown (Default: White)', 
                     'color_rgb' => 'FFFFFF',
                     'quantity' => 1,
-                    'confidence' => round($confidence, 1)
+                    'confidence' => round($confidence, 1),
+                    'in_db' => true
                 ];
             } else {
-                // If not found locally, we can still show it but user might not be able to add it 
-                // if foreign keys constraint exists. 
-                // For now, let's skip parts not in our DB to ensure data consistency.
-                // Or better: show it but mark as "Not in DB".
-                // Let's stick to valid parts.
+                // If not found locally, still show it but mark it
+                // Brickognize provides name in 'name' field usually
+                $name = $pred['name'] ?? 'Unknown Part';
+                
+                // Try to get image from Rebrickable CDN if not in local DB
+                // Pattern: https://cdn.rebrickable.com/media/parts/elements/{id}.jpg or similar
+                // But Brickognize doesn't give element ID, just part num.
+                // Best guess image:
+                $imgUrl = "https://cdn.rebrickable.com/media/parts/ldraw/15/{$partNum}.png";
+
+                $results[] = [
+                    'part_num' => $partNum,
+                    'part_name' => $name . ' (Not in DB)',
+                    'img_url' => $imgUrl, // Fallback external image
+                    'color_id' => 15,
+                    'color_name' => 'Unknown (Default: White)', 
+                    'color_rgb' => 'CCCCCC', // Gray out
+                    'quantity' => 1,
+                    'confidence' => round($confidence, 1),
+                    'in_db' => false
+                ];
             }
         }
         
