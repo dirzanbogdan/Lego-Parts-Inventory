@@ -8,6 +8,7 @@ use App\Controllers\PartsController;
 use App\Controllers\ThemesController;
 use App\Controllers\UpdateController;
 use App\Controllers\MyController;
+use App\Controllers\IdentifyController;
 use App\Controllers\AuthController;
 
 $router = new Router();
@@ -43,6 +44,11 @@ $router->post('/admin/update/populate-theme-urls', [UpdateController::class, 'po
 $router->get('/admin/update/download-images', [UpdateController::class, 'redirectBack']);
 
 // My collections
+$router->get('/identify', [IdentifyController::class, 'index']);
+$router->post('/identify/analyze', [IdentifyController::class, 'analyze']);
+$router->post('/identify/add', [IdentifyController::class, 'add']);
+$router->post('/identify/add-all', [IdentifyController::class, 'addAll']);
+
 $router->post('/my/sets/add', [MyController::class, 'addSet']);
 $router->post('/my/sets/update', [MyController::class, 'updateSet']);
 $router->post('/my/sets/remove', [MyController::class, 'removeSet']);
