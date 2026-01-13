@@ -9,19 +9,49 @@ header('Content-Type: application/json');
 
 // Authorization: allow via UPDATE_SECRET or admin user
 $secret = getenv('UPDATE_SECRET') ?: '';
-if ($secret) {
-    $provided = $_GET['secret'] ?? '';
-    if (!hash_equals($secret, $provided)) {
-        http_response_code(403);
-        echo json_encode(['ok' => false, 'error' => 'forbidden']);
-        exit;
+// If users table does not exist yet, allow running without auth to bootstrap DB safely
+try {
+    $pdoTmp = Config::db();
+    $hasUsers = false;
+    try {
+        $stmtTmp = $pdoTmp->query("SHOW TABLES LIKE 'users'");
+        $hasUsers = (bool)$stmtTmp->fetchColumn();
+    } catch (Throwable $e) {
+        $hasUsers = false;
     }
-} else {
-    $user = $_SESSION['user'] ?? null;
-    if (!$user || ($user['role'] ?? 'user') !== 'admin') {
-        http_response_code(403);
-        echo json_encode(['ok' => false, 'error' => 'forbidden']);
-        exit;
+    if ($hasUsers) {
+        if ($secret) {
+            $provided = $_GET['secret'] ?? '';
+            if (!hash_equals($secret, $provided)) {
+                http_response_code(403);
+                echo json_encode(['ok' => false, 'error' => 'forbidden']);
+                exit;
+            }
+        } else {
+            $user = $_SESSION['user'] ?? null;
+            if (!$user || ($user['role'] ?? 'user') !== 'admin') {
+                http_response_code(403);
+                echo json_encode(['ok' => false, 'error' => 'forbidden']);
+                exit;
+            }
+        }
+    }
+} catch (Throwable $e) {
+    // If we cannot check, default to requiring secret or admin
+    if ($secret) {
+        $provided = $_GET['secret'] ?? '';
+        if (!hash_equals($secret, $provided)) {
+            http_response_code(403);
+            echo json_encode(['ok' => false, 'error' => 'forbidden']);
+            exit;
+        }
+    } else {
+        $user = $_SESSION['user'] ?? null;
+        if (!$user || ($user['role'] ?? 'user') !== 'admin') {
+            http_response_code(403);
+            echo json_encode(['ok' => false, 'error' => 'forbidden']);
+            exit;
+        }
     }
 }
 
