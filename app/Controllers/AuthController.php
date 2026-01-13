@@ -3,6 +3,7 @@ declare(strict_types=1);
 namespace App\Controllers;
 use App\Core\Controller;
 use App\Core\Security;
+use App\Core\Config;
 use App\Models\User;
 class AuthController extends Controller {
     public function loginForm(): void {
@@ -13,6 +14,7 @@ class AuthController extends Controller {
     }
     public function login(): void {
         $this->requirePost();
+        $this->ensureUsersTable();
         if (!Security::verifyCsrf($_POST['csrf'] ?? null)) {
             http_response_code(400);
             echo 'bad request';
@@ -30,6 +32,7 @@ class AuthController extends Controller {
     }
     public function register(): void {
         $this->requirePost();
+        $this->ensureUsersTable();
         if (!Security::verifyCsrf($_POST['csrf'] ?? null)) {
             http_response_code(400);
             echo 'bad request';
@@ -51,5 +54,22 @@ class AuthController extends Controller {
     public function logout(): void {
         unset($_SESSION['user']);
         header('Location: /');
+    }
+    
+    private function ensureUsersTable(): void {
+        try {
+            $pdo = Config::db();
+            $pdo->exec("
+                CREATE TABLE IF NOT EXISTS users (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    username VARCHAR(100) UNIQUE NOT NULL,
+                    password_hash VARCHAR(255) NOT NULL,
+                    role ENUM('admin','user') NOT NULL DEFAULT 'user',
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+            ");
+        } catch (\Throwable $e) {
+            // ignore
+        }
     }
 }
