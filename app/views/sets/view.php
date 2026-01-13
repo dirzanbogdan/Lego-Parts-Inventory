@@ -8,22 +8,24 @@
         <p>Year: <?= $set->year ?></p>
         <p>Theme: <a href="/search?type=sets&q=<?= urlencode($set->theme_name ?? '') ?>"><?= htmlspecialchars($set->theme_name ?? $set->theme_id) ?></a></p>
         <p>Parts: <?= $set->num_parts ?></p>
-        <form action="/my/sets/add" method="POST" class="mt-2">
-            <input type="hidden" name="csrf" value="<?= htmlspecialchars(\App\Core\Security::csrfToken()) ?>">
-            <input type="hidden" name="set_num" value="<?= htmlspecialchars($set->set_num) ?>">
-            <input type="hidden" name="quantity" value="1">
-            <button type="submit" class="btn btn-success btn-sm">Add to My sets</button>
-        </form>
-        <form action="/my/sets/remove" method="POST" class="mt-2" onsubmit="return confirm('Remove this set from My sets?');">
-            <input type="hidden" name="csrf" value="<?= htmlspecialchars(\App\Core\Security::csrfToken()) ?>">
-            <input type="hidden" name="set_num" value="<?= htmlspecialchars($set->set_num) ?>">
-            <button type="submit" class="btn btn-outline-danger btn-sm">Remove from My sets</button>
-        </form>
-        <form action="/my/sets/build" method="POST" class="mt-2" onsubmit="return confirm('Construiești acest set? Vor fi scăzute piesele din My parts.');">
-            <input type="hidden" name="csrf" value="<?= htmlspecialchars(\App\Core\Security::csrfToken()) ?>">
-            <input type="hidden" name="set_num" value="<?= htmlspecialchars($set->set_num) ?>">
-            <button type="submit" class="btn btn-warning btn-sm">Built</button>
-        </form>
+        <div class="d-flex flex-wrap gap-2 mt-2">
+            <form action="/my/sets/add" method="POST" class="mb-0">
+                <input type="hidden" name="csrf" value="<?= htmlspecialchars(\App\Core\Security::csrfToken()) ?>">
+                <input type="hidden" name="set_num" value="<?= htmlspecialchars($set->set_num) ?>">
+                <input type="hidden" name="quantity" value="1">
+                <button type="submit" class="btn btn-success btn-sm">Add to My sets</button>
+            </form>
+            <form action="/my/sets/remove" method="POST" class="mb-0" onsubmit="return confirm('Remove this set from My sets?');">
+                <input type="hidden" name="csrf" value="<?= htmlspecialchars(\App\Core\Security::csrfToken()) ?>">
+                <input type="hidden" name="set_num" value="<?= htmlspecialchars($set->set_num) ?>">
+                <button type="submit" class="btn btn-outline-danger btn-sm">Remove from My sets</button>
+            </form>
+            <form action="/my/sets/build" method="POST" class="mb-0" onsubmit="return confirm('Construiești acest set? Vor fi scăzute piesele din My parts.');">
+                <input type="hidden" name="csrf" value="<?= htmlspecialchars(\App\Core\Security::csrfToken()) ?>">
+                <input type="hidden" name="set_num" value="<?= htmlspecialchars($set->set_num) ?>">
+                <button type="submit" class="btn btn-warning btn-sm">Built</button>
+            </form>
+        </div>
     </div>
 </div>
 

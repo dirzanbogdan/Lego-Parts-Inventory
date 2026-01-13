@@ -30,21 +30,21 @@
                         </p>
                     </div>
                     <div class="card-footer p-2">
-                        <div class="d-flex justify-content-center align-items-center gap-2">
+                        <div class="d-flex flex-wrap justify-content-center align-items-center gap-2">
                             <a href="/sets/<?= htmlspecialchars($set['set_num']) ?>" class="btn btn-primary btn-sm">View</a>
-                            <form action="/my/sets/update" method="POST" class="d-flex">
+                            <form action="/my/sets/update" method="POST" class="d-flex mb-0">
                                 <input type="hidden" name="csrf" value="<?= htmlspecialchars(\App\Core\Security::csrfToken()) ?>">
                                 <input type="hidden" name="set_num" value="<?= htmlspecialchars($set['set_num']) ?>">
                                 <input type="number" name="quantity" class="form-control form-control-sm" value="<?= (int)$set['quantity'] ?>" min="0" style="width: 80px;">
                                 <button type="submit" class="btn btn-sm btn-success">Save</button>
                             </form>
-                            <form action="/my/sets/remove" method="POST" onsubmit="return confirm('Remove this set?');">
+                            <form action="/my/sets/remove" method="POST" onsubmit="return confirm('Remove this set?');" class="mb-0">
                                 <input type="hidden" name="csrf" value="<?= htmlspecialchars(\App\Core\Security::csrfToken()) ?>">
                                 <input type="hidden" name="set_num" value="<?= htmlspecialchars($set['set_num']) ?>">
                                 <button type="submit" class="btn btn-sm btn-outline-danger">Remove</button>
                             </form>
                             <?php if (empty($set['built'])): ?>
-                                <form action="/my/sets/build" method="POST" onsubmit="return confirm('Construiești acest set? Vor fi scăzute piesele din My parts.');">
+                                <form action="/my/sets/build" method="POST" onsubmit="return confirm('Construiești acest set? Vor fi scăzute piesele din My parts.');" class="mb-0">
                                     <input type="hidden" name="csrf" value="<?= htmlspecialchars(\App\Core\Security::csrfToken()) ?>">
                                     <input type="hidden" name="set_num" value="<?= htmlspecialchars($set['set_num']) ?>">
                                     <button type="submit" class="btn btn-sm btn-warning">Built</button>

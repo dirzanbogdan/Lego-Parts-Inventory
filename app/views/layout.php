@@ -8,6 +8,11 @@
     <style>
         .part-img { width: 50px; height: 50px; object-fit: contain; }
         .set-img { width: 100%; height: 200px; object-fit: contain; }
+        .card-footer form { margin-bottom: 0; }
+        @media (max-width: 576px) {
+            .navbar .form-select { width: 90px !important; }
+            .navbar .form-control { min-width: 120px; }
+        }
     </style>
 </head>
 <body>
