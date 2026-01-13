@@ -6,7 +6,7 @@ use App\Core\Security;
 use PDO;
 
 class MyController extends Controller {
-    private int $userId = 1;
+    private $userId = 1;
 
     public function addSet() {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -85,39 +85,50 @@ class MyController extends Controller {
     public function mySets() {
         $pdo = Config::db();
         $this->ensureUserSetsTable($pdo);
-        $sql = "
-            SELECT us.set_num, us.quantity, s.name, s.year, s.img_url, t.name AS theme_name
-            FROM user_sets us
-            JOIN sets s ON s.set_num = us.set_num
-            LEFT JOIN themes t ON s.theme_id = t.id
-            WHERE us.user_id = ?
-            ORDER BY s.year DESC, s.name ASC
-        ";
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute([$this->userId]);
-        $sets = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $sets = [];
+        try {
+            $sql = "
+                SELECT us.set_num, us.quantity, s.name, s.year, s.img_url, t.name AS theme_name
+                FROM user_sets us
+                JOIN sets s ON s.set_num = us.set_num
+                LEFT JOIN themes t ON s.theme_id = t.id
+                WHERE us.user_id = ?
+                ORDER BY s.year DESC, s.name ASC
+            ";
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute([$this->userId]);
+            $sets = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (\Throwable $e) {
+            $sets = [];
+        }
         $this->view('my/sets', ['sets' => $sets]);
     }
 
     public function myParts() {
         $pdo = Config::db();
-        $sql = "
-            SELECT 
-                up.part_num, up.color_id, up.quantity,
-                p.name AS part_name, p.img_url AS generic_img_url,
-                c.name AS color_name, c.rgb,
-                MAX(ip.img_url) AS img_url
-            FROM user_parts up
-            JOIN parts p ON p.part_num = up.part_num
-            JOIN colors c ON c.id = up.color_id
-            LEFT JOIN inventory_parts ip ON (ip.part_num = up.part_num AND ip.color_id = up.color_id)
-            WHERE up.user_id = ?
-            GROUP BY up.part_num, up.color_id
-            ORDER BY p.name ASC, c.name ASC
-        ";
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute([$this->userId]);
-        $parts = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $this->ensureUserPartsTable($pdo);
+        $parts = [];
+        try {
+            $sql = "
+                SELECT 
+                    up.part_num, up.color_id, up.quantity,
+                    p.name AS part_name, p.img_url AS generic_img_url,
+                    c.name AS color_name, c.rgb,
+                    MAX(ip.img_url) AS img_url
+                FROM user_parts up
+                JOIN parts p ON p.part_num = up.part_num
+                JOIN colors c ON c.id = up.color_id
+                LEFT JOIN inventory_parts ip ON (ip.part_num = up.part_num AND ip.color_id = up.color_id)
+                WHERE up.user_id = ?
+                GROUP BY up.part_num, up.color_id
+                ORDER BY p.name ASC, c.name ASC
+            ";
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute([$this->userId]);
+            $parts = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (\Throwable $e) {
+            $parts = [];
+        }
         $this->view('my/parts', ['parts' => $parts]);
     }
 
@@ -128,6 +139,18 @@ class MyController extends Controller {
                 set_num VARCHAR(50) NOT NULL,
                 quantity INT NOT NULL DEFAULT 1,
                 PRIMARY KEY (user_id, set_num)
+            )
+        ");
+    }
+
+    private function ensureUserPartsTable(PDO $pdo): void {
+        $pdo->exec("
+            CREATE TABLE IF NOT EXISTS user_parts (
+                user_id INT NOT NULL,
+                part_num VARCHAR(50) NOT NULL,
+                color_id INT NOT NULL,
+                quantity INT NOT NULL DEFAULT 0,
+                PRIMARY KEY (user_id, part_num, color_id)
             )
         ");
     }
