@@ -31,16 +31,16 @@
                     <li class="nav-item"><a class="nav-link" href="/my/parts">My parts</a></li>
                     <li class="nav-item"><a class="nav-link" href="/admin/update">Update</a></li>
                 </ul>
-                <form class="d-flex position-relative" action="/search" method="get" id="searchForm">
-                    <select name="type" class="form-select me-2" style="width: 100px;" id="searchType">
-                        <option value="sets">Sets</option>
-                        <option value="parts">Parts</option>
-                    </select>
-                    <input class="form-control me-2" type="search" name="q" id="searchInput" placeholder="Search" aria-label="Search" autocomplete="off">
-                    <button class="btn btn-outline-light" type="submit">Search</button>
-                    <div id="searchResults" class="position-absolute bg-white text-dark shadow rounded" style="top: 100%; left: 0; right: 0; z-index: 1000; max-height: 400px; overflow-y: auto; display: none;"></div>
-                </form>
             </div>
+            <form class="d-flex position-relative ms-lg-3 mt-2 mt-lg-0" action="/search" method="get" id="searchForm">
+                <select name="type" class="form-select me-2" style="width: 100px;" id="searchType">
+                    <option value="parts" selected>Parts</option>
+                    <option value="sets">Sets</option>
+                </select>
+                <input class="form-control me-2" type="search" name="q" id="searchInput" placeholder="Search" aria-label="Search" autocomplete="off">
+                <button class="btn btn-outline-light" type="submit">Search</button>
+                <div id="searchResults" class="position-absolute bg-white text-dark shadow rounded" style="top: 100%; left: 0; right: 0; z-index: 1000; max-height: 400px; overflow-y: auto; display: none;"></div>
+            </form>
         </div>
     </nav>
 
