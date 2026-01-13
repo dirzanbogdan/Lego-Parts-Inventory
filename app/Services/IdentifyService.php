@@ -11,19 +11,23 @@ class IdentifyService {
      * Identifies Lego parts using the Brickognize API.
      *
      * @param string $imagePath
+     * @param string $mimeType Optional mime type override
      * @return array
      */
-    public function analyze($imagePath) {
+    public function analyze($imagePath, $mimeType = null) {
         // 1. Send image to Brickognize API
         $apiUrl = 'https://api.brickognize.com/predict/';
         
-        $mime = 'application/octet-stream';
-        if (function_exists('mime_content_type')) {
-            $mime = mime_content_type($imagePath);
-        } elseif (function_exists('finfo_open')) {
-            $finfo = finfo_open(FILEINFO_MIME_TYPE);
-            $mime = finfo_file($finfo, $imagePath);
-            finfo_close($finfo);
+        $mime = $mimeType;
+        if (!$mime) {
+            $mime = 'application/octet-stream';
+            if (function_exists('mime_content_type')) {
+                $mime = mime_content_type($imagePath);
+            } elseif (function_exists('finfo_open')) {
+                $finfo = finfo_open(FILEINFO_MIME_TYPE);
+                $mime = finfo_file($finfo, $imagePath);
+                finfo_close($finfo);
+            }
         }
 
         $cfile = new \CURLFile($imagePath, $mime, 'query_image');

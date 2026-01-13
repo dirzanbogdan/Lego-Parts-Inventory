@@ -29,15 +29,14 @@ class IdentifyController extends Controller {
         }
 
         $tmpPath = $_FILES['image']['tmp_name'];
-        // In a real app, we would move this file to a permanent storage.
-        // For this mock service, we just pass the temp path (or dummy).
+        $mimeType = $_FILES['image']['type']; // Use the browser-provided mime type
         
         $service = new IdentifyService();
-        $results = $service->analyze($tmpPath);
+        $results = $service->analyze($tmpPath, $mimeType);
 
         // Convert uploaded image to base64 to show it back to user
         $imageData = base64_encode(file_get_contents($tmpPath));
-        $src = 'data: ' . mime_content_type($tmpPath) . ';base64,' . $imageData;
+        $src = 'data: ' . $mimeType . ';base64,' . $imageData;
 
         $this->view('identify/results', [
             'results' => $results, 
