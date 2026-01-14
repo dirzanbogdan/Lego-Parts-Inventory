@@ -41,7 +41,8 @@ class IdentifyService {
         $scriptPath = __DIR__ . '/segment_parts.py';
         $outputDir = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'lego_crops_' . uniqid();
         
-        $cmd = 'python "' . $scriptPath . '" "' . $imagePath . '" "' . $outputDir . '"';
+        // Use 2>&1 to capture stderr in output
+        $cmd = 'python "' . $scriptPath . '" "' . $imagePath . '" "' . $outputDir . '" 2>&1';
         
         $output = [];
         $returnVar = 0;
