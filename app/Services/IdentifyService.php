@@ -51,6 +51,11 @@ class IdentifyService {
         $jsonStr = implode("\n", $output);
         $crops = json_decode($jsonStr, true);
         
+        // Log output for debugging
+        if ($returnVar !== 0 || empty($crops)) {
+            error_log("Python Segmentation Error. Return: $returnVar, Output: $jsonStr");
+        }
+
         $aggregatedResults = [];
 
         // If segmentation failed or returned no crops, fallback to full image
@@ -97,6 +102,7 @@ class IdentifyService {
 
         return array_values($aggregatedResults);
     }
+
 
     private function findClosestColor($hex) {
         $r = hexdec(substr($hex, 0, 2));
