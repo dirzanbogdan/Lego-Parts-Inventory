@@ -12,8 +12,8 @@
                 <?php endif; ?>
 
                 <form action="/identify/analyze" method="POST" enctype="multipart/form-data" class="d-flex flex-column align-items-center" id="identifyForm">
-                    <input type="file" id="image_gallery" name="image" accept="image/*" class="d-none">
-                    <input type="file" id="image_camera" name="image" accept="image/*" capture="environment" class="d-none">
+                    <input type="file" id="image_gallery" name="image_gallery" accept="image/*" class="d-none">
+                    <input type="file" id="image_camera" name="image_camera" accept="image/*" capture="environment" class="d-none">
                     <div class="mb-4 w-75 d-flex flex-column flex-sm-row justify-content-center gap-2">
                         <button type="button" class="btn btn-outline-primary btn-lg flex-fill" id="btnUpload">
                             Upload image

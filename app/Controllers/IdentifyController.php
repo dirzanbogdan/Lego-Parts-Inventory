@@ -22,14 +22,18 @@ class IdentifyController extends Controller {
             return;
         }
 
-        // Basic file validation
-        if (!isset($_FILES['image']) || $_FILES['image']['error'] !== UPLOAD_ERR_OK) {
+        $file = null;
+        if (isset($_FILES['image_gallery']) && $_FILES['image_gallery']['error'] === UPLOAD_ERR_OK) {
+            $file = $_FILES['image_gallery'];
+        } elseif (isset($_FILES['image_camera']) && $_FILES['image_camera']['error'] === UPLOAD_ERR_OK) {
+            $file = $_FILES['image_camera'];
+        } else {
             $this->view('identify/index', ['error' => 'Please upload a valid image.']);
             return;
         }
 
-        $tmpPath = $_FILES['image']['tmp_name'];
-        $mimeType = $_FILES['image']['type']; // Use the browser-provided mime type
+        $tmpPath = $file['tmp_name'];
+        $mimeType = $file['type'];
         
         $service = new IdentifyService();
         $results = $service->analyze($tmpPath, $mimeType);
