@@ -18,8 +18,26 @@
 <?php if (!empty($remote_short)): ?>
   <p>Commit remote: <strong><?php echo htmlspecialchars($remote_short); ?></strong></p>
 <?php endif; ?>
-<pre><?php echo htmlspecialchars($status ?? ''); ?></pre>
-<div class="card">Legenda git status: <br>## main = branchul curent; D = fișier șters; ?? = fișier neversionat</div>
+
+<?php if (!empty($status) && (!empty($before) || !empty($after) || !empty($pull_log))): ?>
+  <div class="accordion mb-3" id="gitStatusAccordion">
+    <div class="accordion-item">
+      <h2 class="accordion-header" id="gitStatusHeading">
+        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#gitStatusCollapse" aria-expanded="false" aria-controls="gitStatusCollapse">
+          Git status și legendă (după update)
+        </button>
+      </h2>
+      <div id="gitStatusCollapse" class="accordion-collapse collapse" aria-labelledby="gitStatusHeading" data-bs-parent="#gitStatusAccordion">
+        <div class="accordion-body">
+          <pre class="mb-2"><?php echo htmlspecialchars($status ?? ''); ?></pre>
+          <div class="card">
+            Legenda git status: <br>## main = branchul curent; D = fișier șters; ?? = fișier neversionat
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+<?php endif; ?>
 <?php if (!empty($before) || !empty($after)): ?>
   <p>Inainte: <?php echo htmlspecialchars($before ?? ''); ?> • Dupa: <?php echo htmlspecialchars($after ?? ''); ?></p>
   <?php if (!empty($pull_log)): ?><pre><?php echo htmlspecialchars($pull_log); ?></pre><?php endif; ?>
