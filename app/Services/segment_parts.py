@@ -20,7 +20,7 @@ def segment_image(image_path, output_dir):
     # Load image
     img = cv2.imread(image_path)
     if img is None:
-        return json.dumps({"error": f"Could not read image at {image_path}"})
+        return json.dumps({"error": "Could not read image at {}".format(image_path)})
 
     # Resize if too large (speed up)
     height, width = img.shape[:2]
