@@ -22,13 +22,31 @@ class IdentifyController extends Controller {
             return;
         }
 
+        $gallery = $_FILES['image_gallery'] ?? null;
+        $camera = $_FILES['image_camera'] ?? null;
+
         $file = null;
-        if (isset($_FILES['image_gallery']) && $_FILES['image_gallery']['error'] === UPLOAD_ERR_OK) {
-            $file = $_FILES['image_gallery'];
-        } elseif (isset($_FILES['image_camera']) && $_FILES['image_camera']['error'] === UPLOAD_ERR_OK) {
-            $file = $_FILES['image_camera'];
+        if (is_array($gallery) && ($gallery['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_OK) {
+            $file = $gallery;
+        } elseif (is_array($camera) && ($camera['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_OK) {
+            $file = $camera;
         } else {
-            $this->view('identify/index', ['error' => 'Please upload a valid image.']);
+            $galleryError = is_array($gallery) ? ($gallery['error'] ?? null) : null;
+            $cameraError = is_array($camera) ? ($camera['error'] ?? null) : null;
+            error_log(
+                'Identify upload failed. gallery_error=' . var_export($galleryError, true) .
+                ' camera_error=' . var_export($cameraError, true)
+            );
+            $message = 'Please upload a valid image.';
+            if (
+                $galleryError === UPLOAD_ERR_INI_SIZE ||
+                $galleryError === UPLOAD_ERR_FORM_SIZE ||
+                $cameraError === UPLOAD_ERR_INI_SIZE ||
+                $cameraError === UPLOAD_ERR_FORM_SIZE
+            ) {
+                $message = 'Image too large for server upload limits.';
+            }
+            $this->view('identify/index', ['error' => $message]);
             return;
         }
 
