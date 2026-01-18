@@ -45,7 +45,7 @@
 
 <h3>Backup DB</h3>
 <?php if (!empty($last_backup)): ?><p>Ultimul backup: <a href="<?php echo htmlspecialchars($last_backup); ?>" target="_blank"><?php echo htmlspecialchars($last_backup); ?></a></p><?php endif; ?>
-<form method="post" action="/admin/update/backup">
+<form method="post" action="/admin/update/backup" target="_blank">
   <input type="hidden" name="csrf" value="<?php echo htmlspecialchars($csrf); ?>">
   <button type="submit">Genereaza backup</button>
 </form>
