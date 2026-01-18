@@ -33,18 +33,24 @@ class IdentifyController extends Controller {
         } else {
             $galleryError = is_array($gallery) ? ($gallery['error'] ?? null) : null;
             $cameraError = is_array($camera) ? ($camera['error'] ?? null) : null;
+            $maxUpload = ini_get('upload_max_filesize');
+            $maxPost = ini_get('post_max_size');
+            $contentLength = $_SERVER['CONTENT_LENGTH'] ?? null;
             error_log(
                 'Identify upload failed. gallery_error=' . var_export($galleryError, true) .
-                ' camera_error=' . var_export($cameraError, true)
+                ' camera_error=' . var_export($cameraError, true) .
+                ' upload_max_filesize=' . var_export($maxUpload, true) .
+                ' post_max_size=' . var_export($maxPost, true) .
+                ' content_length=' . var_export($contentLength, true)
             );
-            $message = 'Please upload a valid image.';
+            $message = 'We could not upload the image. Please try again with a smaller file.';
             if (
                 $galleryError === UPLOAD_ERR_INI_SIZE ||
                 $galleryError === UPLOAD_ERR_FORM_SIZE ||
                 $cameraError === UPLOAD_ERR_INI_SIZE ||
                 $cameraError === UPLOAD_ERR_FORM_SIZE
             ) {
-                $message = 'Image too large for server upload limits.';
+                $message = 'We could not upload the image because the server reported it is too large.';
             }
             $this->view('identify/index', ['error' => $message]);
             return;
