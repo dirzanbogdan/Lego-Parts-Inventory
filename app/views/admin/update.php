@@ -24,7 +24,7 @@
     <div class="accordion-item">
       <h2 class="accordion-header" id="gitStatusHeading">
         <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#gitStatusCollapse" aria-expanded="false" aria-controls="gitStatusCollapse">
-          Git status și legendă (după update)
+          Legendă git status
         </button>
       </h2>
       <div id="gitStatusCollapse" class="accordion-collapse collapse" aria-labelledby="gitStatusHeading" data-bs-parent="#gitStatusAccordion">
