@@ -708,6 +708,7 @@ class UpdateController extends Controller {
                         $errorMsg = "HTTP $httpCode";
                     }
                 }
+                /** @disregard P1007 'curl_close' is deprecated */
                 curl_close($ch);
             } else {
                 // Fallback to file_get_contents
