@@ -23,7 +23,7 @@
                              style="max-width: 50px;">
                     </td>
                     <td>
-                        <div class="fw-bold text-truncate" style="max-width: 220px;"><?= htmlspecialchars($row['part_name']) ?></div>
+                        <div class="fw-bold"><?= htmlspecialchars($row['part_name']) ?></div>
                         <small class="text-muted"><?= htmlspecialchars($row['part_num']) ?></small>
                     </td>
                     <td>

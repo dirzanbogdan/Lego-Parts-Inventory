@@ -14,7 +14,7 @@
                 <form action="/identify/analyze" method="POST" enctype="multipart/form-data" class="d-flex flex-column align-items-center">
                     <div class="mb-4 w-75">
                         <label for="image" class="form-label visually-hidden">Upload Image</label>
-                        <input class="form-control form-control-lg" type="file" id="image" name="image" accept="image/*" capture="environment" required>
+                        <input class="form-control form-control-lg" type="file" id="image" name="image" accept="image/*" required>
                     </div>
                     <button type="submit" class="btn btn-lg btn-success px-5">
                         <span class="spinner-border spinner-border-sm d-none me-2" role="status" aria-hidden="true"></span>
@@ -23,10 +23,12 @@
                 </form>
                 
                 <div class="mt-4 text-muted small">
-                    On mobile, you can use the camera directly when choosing the image.
+                    On desktop you can upload an existing image. On mobile or tablet, your browser will let you choose from gallery or use the camera.
                 </div>
-                    <i class="bi bi-info-circle"></i> Supports JPG, PNG. Make sure parts are clearly visible.
+                <div class="mt-1 text-muted small">
+                    Supports JPG, PNG. Make sure parts are clearly visible.
                 </div>
+            </div>
             </div>
         </div>
     </div>
