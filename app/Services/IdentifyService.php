@@ -145,7 +145,6 @@ class IdentifyService {
             } elseif (function_exists('finfo_open')) {
                 $finfo = finfo_open(FILEINFO_MIME_TYPE);
                 $mime = finfo_file($finfo, $imagePath);
-                finfo_close($finfo);
             }
         }
 
@@ -162,7 +161,6 @@ class IdentifyService {
         $response = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         $error = curl_error($ch);
-        curl_close($ch);
 
         if ($error || $httpCode !== 200) {
             error_log("Brickognize API Error: $error (HTTP $httpCode)");
