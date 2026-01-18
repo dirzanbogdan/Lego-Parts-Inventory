@@ -11,18 +11,58 @@ class Part {
     public $part_cat_id;
     public $part_material;
 
-    public static function findAll(int $limit = 50, int $offset = 0): array {
+    public static function findAll(int $limit = 50, int $offset = 0, array $filters = []): array {
         $pdo = Config::db();
-        $stmt = $pdo->prepare("SELECT * FROM parts ORDER BY name ASC LIMIT ? OFFSET ?");
-        $stmt->bindValue(1, $limit, PDO::PARAM_INT);
-        $stmt->bindValue(2, $offset, PDO::PARAM_INT);
+        $sql = "SELECT * FROM parts WHERE 1=1";
+        $params = [];
+
+        if (!empty($filters['has_image'])) {
+            if ($filters['has_image'] === 'with') {
+                $sql .= " AND img_url IS NOT NULL AND img_url <> '' AND img_url <> '/images/no-image.png'";
+            } elseif ($filters['has_image'] === 'without') {
+                $sql .= " AND (img_url IS NULL OR img_url = '' OR img_url = '/images/no-image.png')";
+            }
+        }
+
+        if (!empty($filters['category_id'])) {
+            $sql .= " AND part_cat_id = ?";
+            $params[] = (int)$filters['category_id'];
+        }
+
+        $sql .= " ORDER BY name ASC LIMIT ? OFFSET ?";
+        $params[] = $limit;
+        $params[] = $offset;
+
+        $stmt = $pdo->prepare($sql);
+        foreach ($params as $idx => $val) {
+            $type = is_int($val) ? PDO::PARAM_INT : PDO::PARAM_STR;
+            $stmt->bindValue($idx + 1, $val, $type);
+        }
         $stmt->execute();
         return $stmt->fetchAll(PDO::FETCH_CLASS, self::class);
     }
 
-    public static function count(): int {
+    public static function count(array $filters = []): int {
         $pdo = Config::db();
-        return (int)$pdo->query("SELECT COUNT(*) FROM parts")->fetchColumn();
+        $sql = "SELECT COUNT(*) FROM parts WHERE 1=1";
+        $params = [];
+
+        if (!empty($filters['has_image'])) {
+            if ($filters['has_image'] === 'with') {
+                $sql .= " AND img_url IS NOT NULL AND img_url <> '' AND img_url <> '/images/no-image.png'";
+            } elseif ($filters['has_image'] === 'without') {
+                $sql .= " AND (img_url IS NULL OR img_url = '' OR img_url = '/images/no-image.png')";
+            }
+        }
+
+        if (!empty($filters['category_id'])) {
+            $sql .= " AND part_cat_id = ?";
+            $params[] = (int)$filters['category_id'];
+        }
+
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute($params);
+        return (int)$stmt->fetchColumn();
     }
 
     public static function find(string $part_num): ?self {
