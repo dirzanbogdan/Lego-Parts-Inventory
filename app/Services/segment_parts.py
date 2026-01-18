@@ -85,7 +85,7 @@ def segment_image(image_path, output_dir):
         crop = img[y_m:y_m+h_m, x_m:x_m+w_m]
         
         # Save crop
-        crop_filename = f"crop_{i}.jpg"
+        crop_filename = "crop_{}.jpg".format(i)
         crop_path = os.path.join(output_dir, crop_filename)
         cv2.imwrite(crop_path, crop)
 
