@@ -1,7 +1,7 @@
 <?php $title = 'Update aplicatie'; ?>
 <h2>Update aplicatie</h2>
 
-<?php if (!empty($remote_short)): ?>
+<?php if (!empty($has_remote_update)): ?>
     <div style="background-color: #fff3cd; color: #856404; padding: 15px; border: 1px solid #ffeeba; border-radius: 5px; margin-bottom: 20px;">
         <strong>Exista o noua versiune!</strong> Va rugam sa faceti update!
         <br>
@@ -10,7 +10,7 @@
     </div>
 <?php else: ?>
     <div style="background-color: #d1e7dd; color: #0f5132; padding: 15px; border: 1px solid #badbcc; border-radius: 5px; margin-bottom: 20px;">
-        Sunteti la zi! Versiune: <strong><?php echo htmlspecialchars($local_short ?? ''); ?></strong>
+        Sunteti la zi! Versiune: <strong><?php echo htmlspecialchars($remote_short ?: ($local_short ?? '')); ?></strong>
     </div>
 <?php endif; ?>
 

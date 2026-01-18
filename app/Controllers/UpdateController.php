@@ -14,12 +14,14 @@ class UpdateController extends Controller {
         $local = trim($local);
         $remoteHash = trim(explode("\t", trim($remote))[0] ?? '');
         $localShort = $local ? substr($local, -7) : '';
-        $remoteShort = ($remoteHash && $remoteHash !== $local) ? substr($remoteHash, -7) : '';
+        $remoteShort = $remoteHash ? substr($remoteHash, -7) : '';
+        $hasRemoteUpdate = ($remoteHash && $local && $remoteHash !== $local);
         $this->view('admin/update', [
             'local' => $local,
             'remote' => $remoteHash,
             'local_short' => $localShort,
             'remote_short' => $remoteShort,
+            'has_remote_update' => $hasRemoteUpdate,
             'status' => $status,
             'last_backup' => $this->lastBackupPath(),
             'csrf' => Security::csrfToken(),
@@ -41,13 +43,15 @@ class UpdateController extends Controller {
         $after = trim($this->cmd('git rev-parse HEAD'));
         $remoteHash = trim(explode("\t", trim($this->cmd('git ls-remote origin HEAD')))[0] ?? '');
         $localShort = $after ? substr($after, -7) : '';
-        $remoteShort = ($remoteHash && $remoteHash !== $after) ? substr($remoteHash, -7) : '';
+        $remoteShort = $remoteHash ? substr($remoteHash, -7) : '';
+        $hasRemoteUpdate = ($remoteHash && $after && $remoteHash !== $after);
         
         $this->view('admin/update', [
             'local' => $after,
             'remote' => $remoteHash,
             'local_short' => $localShort,
             'remote_short' => $remoteShort,
+            'has_remote_update' => $hasRemoteUpdate,
             'status' => $this->cmd('git status -sb'),
             'last_backup' => $this->lastBackupPath(),
             'pull_log' => $pull,
